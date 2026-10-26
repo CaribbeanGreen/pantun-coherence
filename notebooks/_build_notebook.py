@@ -400,7 +400,38 @@ else:
 """)
 
 md("""
-## 13. Findings
+## 13. Can an AI judge see the link? Gemini and Gemma 4 (pre-registered)
+Two large language models rated 600 pantun 1–10 for how strongly the pembayang hints at the maksud,
+naming the link type and explaining it: 300 real pantun and 300 fakes whose maksud comes from another
+pantun with **the same whole final syllables** (so rhyme cannot reveal them). They were not told that
+fakes were included. Plan and amendments: `docs/gemini_judge_plan.md`. Code: `src/gemini_judge.py`.
+- **Gemini 3.8 Flash** (Google API): stopped by the free-tier limit after 400 of 600 items — **interim**.
+- **Gemma 4 12B** (Google, open weights, run locally in LM Studio on the GPU): all 600 items.
+""")
+code("""
+judges = {"Gemma 4 12B (local, 600 items)": RESULTS / "gemma_judge.json",
+          "Gemini 3.8 Flash (API, interim)": RESULTS / "gemini_judge.json"}
+rows = {}
+for label, path in judges.items():
+    if not path.exists():
+        continue
+    j = json.load(open(path, encoding="utf-8"))
+    rows[label] = {"items": j["items_scored"], "AUC": j["auc"]["gemini_score"],
+                   "95% low": j["auc_ci95"]["gemini_score"][0], "95% high": j["auc_ci95"]["gemini_score"][1],
+                   "AUC traditional": j["auc_by_group"]["gemini_score"]["traditional"],
+                   "AUC author": j["auc_by_group"]["gemini_score"]["author"],
+                   "mean score real": j["mean_score"]["real"], "mean score fake": j["mean_score"]["fake"],
+                   "'kiasan' on real": j["link_type_counts"]["real"].get("kiasan", 0),
+                   "'kiasan' on fake": j["link_type_counts"]["fake"].get("kiasan", 0),
+                   "sees link beyond rhyme": j["sees_link_beyond_rhyme"]}
+    for m in ["labse", "e5_large_instruct", "sound"]:
+        rows.setdefault(f"{m} (same items as {label.split(' (')[0]})", {"items": j["items_scored"], "AUC": j["auc"][m],
+                        "95% low": j["auc_ci95"][m][0], "95% high": j["auc_ci95"][m][1]})
+pd.DataFrame(rows).T.round(3) if rows else print("Run the AI-judge experiment first.")
+""")
+
+md("""
+## 14. Findings
 
 _Numbers below are from the run on 10,907 pantun (13 books), five embedding models and the
 rhyme rule. The shuffles use fixed seeds, so re-running gives the same values; if the corpus
@@ -487,6 +518,18 @@ final syllable in the same book they are no better either (0.457 / 0.558 vs 0.56
 The models learned to hear end rhyme, which the simple rhyme rule already measures (AUC 0.99). With
 about 8,000 pantun and no labels for *how* the halves connect, the easiest pattern to learn is sound,
 not kiasan.
+
+**12. AI judges are at chance and invent kiasan (section 13, pre-registered).** Against 300 real pantun and
+300 fakes that rhyme perfectly, **Gemma 4 12B** scored real and fake pantun the same (mean 3.96 vs 3.97
+out of 10; AUC 0.500, 95% 0.45–0.54; all 600 items). **Gemini 3.8 Flash** was also at chance (AUC 0.525,
+95% 0.47–0.58; interim, 400 items, stopped by the free-tier limit). Both labelled *more* fakes than real
+pantun as `kiasan` (Gemma 107 vs 96; Gemini 64 vs 46 on 400) and wrote fluent symbolic explanations for
+pairings that were never written together. Neither did clearly better on the famous traditional
+pantun, so memorisation is not driving the result. By the pre-registered rule neither "sees the link
+beyond rhyme"; plain LaBSE (AUC 0.556 on the same items) was slightly better. A kiasan can be
+*argued* for almost any pairing; recognising the *accepted* one needs the knowledge of people who
+know pantun. Deviations: Gemini incomplete (quota); Gemma batch 17 onward used a token cap and
+smaller retry batches after reasoning loops (`docs/gemini_judge_plan.md`, amendments 2–3).
 
 **Conclusion.** Off-the-shelf multilingual and Malay sentence embeddings — including the best
 available model for Malay — detect only a weak, partly surface-level pembayang–maksud meaning
