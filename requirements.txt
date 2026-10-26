@@ -1,0 +1,14 @@
+sentence-transformers
+torch
+pandas
+numpy
+scipy
+scikit-learn
+matplotlib
+jupyter
+streamlit
+openpyxl
+datasets
+accelerate
+nltk
+google-genai
