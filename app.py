@@ -96,6 +96,48 @@ def load_calibration():
         return json.load(f)
 
 
+@st.cache_resource(show_spinner="Preparing comparison numbers (first time only)...")
+def reference_rates():
+    """Exact rates from the corpus, used to put each rating in context.
+
+    sound / rules: share of real pantun with each score. meaning: the averaged p_real of every real
+    pantun and of random pairings (seed 0), so a % can be compared with what is typical.
+    """
+    from src.data_loader import load_pantun
+    from src.evaluate import shuffled_partner
+
+    pantun, _ = load_pantun()
+    lines = [p.lines for p in pantun]
+    sound = np.array([sound_score(l) for l in lines])
+    rules, bonus = [], []
+    for l in lines:
+        c = checklist(l)
+        rules.append(1 + sum(x["passed"] for x in c if not x["name"].startswith("Middle")))
+        bonus.append(any(x["passed"] for x in c if x["name"].startswith("Middle")))
+    rules = np.array(rules)
+
+    cal = load_calibration()["models"]
+    corpus = load_corpus()
+    models = [s for s in ALL_MODELS if s in cal and s in corpus.columns]
+    partner = shuffled_partner(np.array([p.maksud for p in pantun]), 0)
+    p_real, p_fake = [], []
+    for s in models:
+        e = np.load(RESULTS / "embeddings" / f"{s}.npz")
+        P, M = e["pembayang"], e["maksud"]
+        p_real.append(predict_p_real(cal[s], (P * M).sum(1)))
+        p_fake.append(predict_p_real(cal[s], (P * M[partner]).sum(1)))
+    p_real, p_fake = np.mean(p_real, axis=0), np.mean(p_fake, axis=0)
+    return {
+        "sound_same": lambda v: 100 * float(np.mean(sound == v)),
+        "sound_10": 100 * float(np.mean(sound == 10)),
+        "rules_4": 100 * float(np.mean(rules == 4)),
+        "bonus": 100 * float(np.mean(bonus)),
+        "meaning_real_median": 100 * float(np.median(p_real)),
+        "meaning_fake_median": 100 * float(np.median(p_fake)),
+        "meaning_pct": lambda p: float(stats.percentileofscore(p_real, p)),   # % of real pantun below p
+    }
+
+
 def baselines():
     """{model: row} for the random-shuffle baseline from Phase 3."""
     b = load_result_table("baseline_summary.csv")
@@ -161,6 +203,11 @@ OUTCOMES = {
     "not_belong": {"emoji": "🙁", "simple": "Some signs these parts don't belong together",
                    "advanced": "Leans towards: random pairing"},
 }
+
+
+def fmt_pct(value):
+    """'86%', or one decimal for small numbers ('0.3%') so rare cases don't show as 0%."""
+    return f"{value:.1f}%" if 0 < value < 1 else f"{value:.0f}%"
 
 
 def out_of_ten(share):
@@ -246,34 +293,66 @@ if mode == "Simple":
             st.markdown(f":blue[**Picture part**]  \n:blue[{lines[0]}]  \n:blue[{lines[1]}]")
             st.markdown(f":orange[**Message part**]  \n:orange[{lines[2]}]  \n:orange[{lines[3]}]")
         test = load_calibration()["held_out_test"]
-        sound_card, meaning_card = st.columns(2)
+        ref = reference_rates()
+        core = [c for c in res["criteria"] if not c["name"].startswith("Middle")]
+        bonus = [c for c in res["criteria"] if c["name"].startswith("Middle")]
+        n_rules = 1 + sum(c["passed"] for c in core)          # +1 for "has 4 lines"
+        has_bonus = bool(bonus) and bonus[0]["passed"]
+        sound_stars = int(res["sound"] / 2 + 0.5)               # 10 -> 5 stars, 7.5 -> 4, 5 -> 3 ...
+        pct = 100 * res["p_avg"]
 
-        # Rating 1: sound link (rhyme) - reliable, but only about sound.
+        sound_card, meaning_card, rules_card = st.columns(3)
+        # Rating 1: sound link (rhyme), out of 10 and as stars.
         with sound_card.container(border=True, height="stretch"):
-            st.markdown("🎵 **Sound link**", text_alignment="center")
-            st.markdown(f"# {res['sound']:g} / 10", text_alignment="center")
+            st.markdown("🎵 **Sound**", text_alignment="center")
+            st.markdown(f"### {'★' * sound_stars}{'☆' * (5 - sound_stars)}", text_alignment="center")
+            st.markdown(f"# {res['sound']:g}/10", text_alignment="center")
             st.progress(res["sound"] / 10)
+            same = ref["sound_same"](res["sound"])
+            st.caption(f"{fmt_pct(same)} of real pantun score {res['sound']:g}/10"
+                       + ("" if res["sound"] == 10 else f" · {fmt_pct(ref['sound_10'])} score 10/10"))
+        # Rating 2: meaning link, as a %. Not stars: the spread is narrow (40-69%).
+        with meaning_card.container(border=True, height="stretch"):
+            st.markdown("💭 **Meaning**", text_alignment="center")
+            st.markdown(f"### {OUTCOMES[res['lean']]['emoji']}", text_alignment="center")
+            st.markdown(f"# {pct:.0f}%", text_alignment="center")
+            st.progress(res["p_avg"])
+            st.caption(f"Typical real pantun: {ref['meaning_real_median']:.0f}% · mixed-up: "
+                       f"{ref['meaning_fake_median']:.0f}% · 50% = guessing")
+        # Rating 3: traditional rules, out of 4 (+ bonus).
+        with rules_card.container(border=True, height="stretch"):
+            st.markdown("📋 **Rules**", text_alignment="center")
+            st.markdown(f"### {'★' * n_rules}{'☆' * (4 - n_rules)}" + (" ⭐" if has_bonus else ""),
+                        text_alignment="center")
+            st.markdown(f"# {n_rules}/4", text_alignment="center")
+            st.progress(n_rules / 4)
+            st.caption(f"{ref['rules_4']:.0f}% of real pantun follow 4/4 · "
+                       f"{ref['bonus']:.0f}% get the ⭐ bonus")
+
+        if res["lean"] == "belong":
+            st.markdown(f"💭 **{pct:.0f}%** is higher than **{min(ref['meaning_pct'](res['p_avg']), 99):.0f}%** of "
+                        f"real pantun. Scores of 60% or more are right **{100 * test['accuracy_when_it_leans']:.0f}%** "
+                        "of the time.")
+        else:
+            st.markdown(f"💭 **{pct:.0f}%** is below 60%: in this range the computer is right only about as "
+                        f"often as guessing. **{100 * test['share_cannot_tell']:.0f}%** of all pantun "
+                        "(real and mixed-up) land here.")
+
+        with st.expander("Details: which lines rhyme, which rules pass", icon=":material/list:"):
             for a, b, ea, eb, s in res["rhyme"]:
                 mark = "✅" if s == 1 else ("〰️" if s == 0.5 else "❌")
                 st.markdown(f"{mark} Line {a} ends in **-{ea}**, line {b} in **-{eb}**")
-            st.caption("Do the ends of the lines rhyme? (a-b-a-b)")
-
-        # Rating 2: meaning link - the calibrated p_real, shown as a %.
-        with meaning_card.container(border=True, height="stretch"):
-            st.markdown("💭 **Meaning link**", text_alignment="center")
-            st.markdown(f"# {100 * res['p_avg']:.0f}%", text_alignment="center")
-            st.progress(res["p_avg"])
-            st.markdown(f"{OUTCOMES[res['lean']]['emoji']} **{OUTCOMES[res['lean']]['simple']}**",
-                        text_alignment="center")
-            st.caption("The computer's guess that the two parts were written together. "
-                       "**50% = just guessing.**")
+            st.divider()
+            st.markdown("✅ It has **4 lines**: a picture part and a message part")
+            for c in core:
+                st.markdown(f"{'✅' if c['passed'] else '❌'} {c['simple']}  \n:gray[{c['detail']}]")
+            for c in bonus:
+                st.markdown(f"{'⭐' if c['passed'] else '☆'} **Bonus:** {c['simple']}  \n:gray[{c['detail']}]")
+            st.caption("Rules from Malay literature on pantun. They check the **form**, not how clever "
+                       "or beautiful the pantun is.")
 
         if res["lean"] == "cannot_tell":
-            st.markdown(
-                f"💭 For about **{out_of_ten(test['share_cannot_tell'])}** pantun, the computer can't tell "
-                "if the meanings belong together — for real pantun **and** for mixed-up ones. "
-                "Try the **Mixed-up test** example to see for yourself!")
-            with st.expander("Why can't the computer tell?", icon=":material/help:"):
+            with st.expander("Why is the meaning score so close to 50%?", icon=":material/help:"):
                 st.markdown(
                     "In a good pantun, the picture part always gives a **hint** about the message.\n\n"
                     ":blue[*Pisang **emas** dibawa belayar…*] — a golden banana on a ship  \n"
@@ -286,27 +365,6 @@ if mode == "Simple":
                     "pantun **and** in mixed-up ones. The computer can spot a hint only when the same word "
                     "appears (that happens in about 1 in 6 pantun). Understanding a picture-hint needs a "
                     "person who knows pantun.")
-        else:
-            st.markdown(
-                f"💭 The computer only gives an answer like this for about "
-                f"**{out_of_ten(1 - test['share_cannot_tell'])}** pantun, and then it is right about "
-                f"**{out_of_ten(test['accuracy_when_it_leans'])}** times."
-                + (" It often happens when both parts share the same words." if res["lean"] == "belong" else ""))
-        # Traditional rules of pantun form (src/criteria.py).
-        with st.container(border=True):
-            st.markdown("📋 **Pantun rules** — does it follow the traditional rules?")
-            core = [c for c in res["criteria"] if not c["name"].startswith("Middle")]
-            bonus = [c for c in res["criteria"] if c["name"].startswith("Middle")]
-            st.markdown("✅ It has **4 lines**: a picture part and a message part")
-            for c in core:
-                st.markdown(f"{'✅' if c['passed'] else '❌'} {c['simple']}  \n:gray[{c['detail']}]")
-            for c in bonus:
-                st.markdown(f"{'⭐' if c['passed'] else '☆'} **Bonus:** {c['simple']}  \n:gray[{c['detail']}]")
-            n_ok = 1 + sum(c["passed"] for c in core)
-            st.markdown(f"**Follows {n_ok} of {1 + len(core)} rules**"
-                        + (" + the bonus ⭐" if bonus and bonus[0]["passed"] else ""))
-            st.caption("Rules from Malay literature on pantun. They check the **form**, not how clever "
-                       "or beautiful the pantun is.")
 
         st.info("🎵 The **sound** check is good at spotting rhyme, but a pantun can rhyme and still make no "
                 "sense. 💭 The **meaning** check is often unsure, and it can't feel beauty or hidden "
