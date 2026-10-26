@@ -41,6 +41,46 @@ pembayang's own maksud (another version of the same pantun, e.g. *Susah/Sukar ju
 which would make them secretly real. Partners whose maksud has LaBSE similarity ≥ 0.8 with the
 pembayang's own maksud are now excluded, and the sample was rebuilt. No API call had been made.
 
+## Amendment 2 (2026-10-26): free-tier limit and a local second judge
+The free tier allows only 20 Gemini requests per day; the run stopped after 16 of 24 batches
+(400 of 600 items). An interim analysis of those 400 items was computed automatically and seen.
+- **Gemini** stays as planned: the remaining 200 items may be completed after the quota resets, with
+  the same model and prompt. The interim result must be labelled as interim.
+- **Second judge, added now:** Google's open **Gemma 4 12B** (`google/gemma-4-12B-it-qat-q4_0-gguf`,
+  Q4_0, Apache-2.0) running locally in LM Studio (Vulkan, AMD RX 6700 XT), on **all 600 items**, with the
+  **same prompt**, same batches of 25, temperature 0. Because LM Studio's structured output needs a JSON
+  object at the top level, the answer list is wrapped as `{"answers": [...]}`; the fields are unchanged.
+  Raw answers: `results/gemma_raw.jsonl`; analysis: `results/gemma_judge.json`.
+- The same analysis and decision rule apply to each judge separately.
+
+## Amendment 3 (2026-10-26): Gemma reasoning loop
+Gemma 4 failed twice on the same batch (17 of 24): first its hidden reasoning filled the 16,384-token
+context (empty answer), then with a 32,768-token context it was still generating after 30 minutes —
+a reasoning loop, which can happen at temperature 0. Changes, for Gemma only and from batch 17 on:
+- context 32,768 tokens; at most 12,000 generated tokens per request;
+- a batch of 25 that fails is retried as batches of 5, and a failed batch of 5 as single items;
+  items that still fail are recorded and counted as missing. Each saved record notes its batch size.
+Update: with a 32,768-token context the model no longer fit in the GPU's 12 GB and ran far slower
+(a batch of 25 timed out again; it then succeeded as 5 items). From item 406 on, the context is back
+to 16,384 tokens with the 12,000-token output cap (prompt ≈ 3,000 + output ≤ 12,000 fits).
+Batches 1–16 (400 items) were already complete under the original settings. An interim analysis of
+those 400 items had been seen. The prompt and model are unchanged.
+
 ## Decision rule
 Gemini "sees the link beyond rhyme" only if its overall AUC is **higher than every embedding model**
 on the same items **and** the lower end of its 95% interval is above 0.5. Reported whatever happens.
+
+---
+
+## Result (added 2026-10-26, after running)
+
+| AUC, real vs perfectly rhyming fakes | Items | AUC | 95% interval | Mean score real / fake | "kiasan" real / fake |
+|---|---|---|---|---|---|
+| **Gemma 4 12B** (local) | 600 | 0.500 | 0.45–0.54 | 3.96 / 3.97 | 96 / 107 |
+| **Gemini 3.8 Flash** (interim) | 400 | 0.525 | 0.47–0.58 | 5.61 / 5.41 | 46 / 64 |
+| LaBSE, same 600 items | 600 | 0.556 | 0.51–0.60 | | |
+| e5-large-instruct, same 600 items | 600 | 0.537 | 0.49–0.58 | | |
+
+By group (Gemma): traditional 0.546, author collections 0.454 (Gemini interim: 0.553 / 0.498) — no
+clear memorisation effect. **Decision rule: neither judge "sees the link beyond rhyme".** Gemma: no
+failed items. Gemini: 200 items not yet scored (free-tier limit). Notebook section 13, finding 12.

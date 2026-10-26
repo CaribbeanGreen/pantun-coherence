@@ -4,9 +4,12 @@ The plan (sample, prompt, analysis, decision rule) was fixed BEFORE any API call
 see docs/gemini_judge_plan.md.
 
 Steps (run from the project root):
-    python -m src.gemini_judge sample     # build the 600-item sample  -> results/gemini_sample.csv
-    python -m src.gemini_judge run        # ask Gemini (resumable)     -> results/gemini_raw.jsonl
-    python -m src.gemini_judge evaluate   # analysis                   -> results/gemini_judge.json
+    python -m src.gemini_judge sample          # build the 600-item sample -> results/gemini_sample.csv
+    python -m src.gemini_judge run             # ask Gemini (resumable)    -> results/gemini_raw.jsonl
+    python -m src.gemini_judge evaluate        # analysis                  -> results/gemini_judge.json
+    python -m src.gemini_judge run_local       # ask Gemma 4 in LM Studio  -> results/gemma_raw.jsonl
+    python -m src.gemini_judge evaluate_local  # analysis                  -> results/gemma_judge.json
+(Amendment 2 in the plan: Gemma 4 12B runs locally on all 600 items with the same prompt.)
 
 The API key is read from the file .env (GEMINI_API_KEY=...), which is never shared.
 """
@@ -188,6 +191,86 @@ def run():
     print("All items done.")
 
 
+LOCAL_URL = "http://localhost:1234/v1/chat/completions"
+LOCAL_MODEL = "gemma4-judge"   # identifier given when loading google/gemma-4-12b-qat in LM Studio
+GEMMA_RAW = RESULTS / "gemma_raw.jsonl"
+MAX_TOKENS = 12000                                  # Amendment 3: cap on thinking + answer per request
+
+
+def run_local():
+    """Same prompt and batches, sent to Gemma 4 running in LM Studio on this computer."""
+    import urllib.request
+
+    df = pd.read_csv(SAMPLE_CSV, keep_default_na=False)
+    done = set()
+    if GEMMA_RAW.exists():
+        for line in GEMMA_RAW.read_text(encoding="utf-8").splitlines():
+            done |= set(json.loads(line)["items"])
+    item_schema = {"type": "object", "properties": {
+        "id": {"type": "string"}, "score": {"type": "integer"},
+        "link_type": {"type": "string", "enum": LINK_TYPES}, "hint": {"type": "string"}},
+        "required": ["id", "score", "link_type", "hint"]}
+    schema = {"type": "object", "properties": {"answers": {"type": "array", "items": item_schema}},
+              "required": ["answers"]}
+    def ask(batch):
+        """Send one batch; return (answers, info). answers is None if the model gave no valid answer."""
+        text = PROMPT + "\n".join(f'{r.item}:\n{r.line1}\n{r.line2}\n{r.line3}\n{r.line4}\n'
+                                  for r in batch.itertuples())
+        body = {"model": LOCAL_MODEL, "temperature": 0, "seed": SEED,
+                "max_tokens": MAX_TOKENS,           # Amendment 3: stops endless "thinking" loops
+                "messages": [{"role": "user", "content": text}],
+                "response_format": {"type": "json_schema",
+                                    "json_schema": {"name": "pantun_judgements", "strict": True, "schema": schema}}}
+        req = urllib.request.Request(LOCAL_URL, data=json.dumps(body).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=1800) as resp:
+                reply = json.loads(resp.read().decode("utf-8"))
+        except TimeoutError:
+            return None, "timeout"
+        choice = reply["choices"][0]
+        try:
+            return json.loads(choice["message"].get("content") or "")["answers"], "ok"
+        except (json.JSONDecodeError, KeyError):
+            return None, f"finish_reason={choice.get('finish_reason')}"
+
+    def save(batch, answers, size):
+        with open(GEMMA_RAW, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"model": LOCAL_MODEL, "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                                "batch_size": size, "items": list(batch["item"]), "answers": answers},
+                               ensure_ascii=False) + "\n")
+
+    todo = df[~df["item"].isin(done)]
+    print(f"Model: {LOCAL_MODEL}; already done: {len(done)} of {len(df)} items")
+    for start in range(0, len(todo), BATCH):
+        batch = todo.iloc[start:start + BATCH]
+        t0 = time.time()
+        answers, info = ask(batch)
+        if answers is not None:
+            save(batch, answers, BATCH)
+            print(f"  batch {start // BATCH + 1}: {len(answers)} answers in {time.time() - t0:.0f} s", flush=True)
+            continue
+        # Amendment 3: a failed batch of 25 is retried as smaller batches (5, then 1 item).
+        print(f"  batch {start // BATCH + 1}: failed ({info}); retrying in smaller batches", flush=True)
+        pending = [batch.iloc[k:k + 5] for k in range(0, len(batch), 5)]
+        for small in pending:
+            answers, info = ask(small)
+            if answers is not None:
+                save(small, answers, len(small))
+                print(f"    {len(small)} items ok", flush=True)
+                continue
+            for k in range(len(small)):
+                one = small.iloc[k:k + 1]
+                answers, info = ask(one)
+                if answers is not None:
+                    save(one, answers, 1)
+                    print(f"    1 item ok ({one['item'].iloc[0]})", flush=True)
+                else:
+                    save(one, [], 1)          # recorded as failed: counted as missing in the analysis
+                    print(f"    1 item FAILED ({one['item'].iloc[0]}, {info})", flush=True)
+    print("All items done.", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------------------------
@@ -204,10 +287,10 @@ def bootstrap_ci(scores, labels, n=1000, seed=SEED):
     return [float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))]
 
 
-def evaluate():
+def evaluate(raw_path=RAW_JSONL, out_path=OUT_JSON, items_csv=RESULTS / "gemini_scored_items.csv"):
     df = pd.read_csv(SAMPLE_CSV, keep_default_na=False)
     answers, models = {}, set()
-    for line in RAW_JSONL.read_text(encoding="utf-8").splitlines():
+    for line in raw_path.read_text(encoding="utf-8").splitlines():
         rec = json.loads(line)
         models.add(rec["model"])
         for a in rec["answers"]:
@@ -226,7 +309,7 @@ def evaluate():
         df[name] = [float(e["pembayang"][pos[a]] @ e["maksud"][pos[b]])
                     for a, b in zip(df["pembayang_from"], df["maksud_from"])]
     df["sound"] = [sound_score([r.line1, r.line2, r.line3, r.line4]) for r in df.itertuples()]
-    df.to_csv(RESULTS / "gemini_scored_items.csv", index=False, encoding="utf-8")
+    df.to_csv(items_csv, index=False, encoding="utf-8")
 
     y = df["real"].to_numpy()
     out = {"plan": "docs/gemini_judge_plan.md", "model": sorted(models), "items_scored": int(len(df)),
@@ -245,10 +328,15 @@ def evaluate():
     best_embedding = max(out["auc"]["labse"], out["auc"]["e5_large_instruct"])
     out["sees_link_beyond_rhyme"] = bool(out["auc"]["gemini_score"] > best_embedding
                                          and out["auc_ci95"]["gemini_score"][0] > 0.5)
-    OUT_JSON.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
+    out_path.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(out, indent=1, ensure_ascii=False))
+
+
+def evaluate_local():
+    evaluate(GEMMA_RAW, RESULTS / "gemma_judge.json", RESULTS / "gemma_scored_items.csv")
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    {"sample": build_sample, "run": run, "evaluate": evaluate}[sys.argv[1]]()
+    {"sample": build_sample, "run": run, "evaluate": evaluate,
+     "run_local": run_local, "evaluate_local": evaluate_local}[sys.argv[1]]()
