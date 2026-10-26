@@ -1,0 +1,14 @@
+[theme]
+primaryColor = "#2a78d6"
+
+[server]
+# Only this computer can open the app. The pantun corpus is private and must not be
+# reachable from other devices on the network.
+address = "localhost"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client]
+toolbarMode = "minimal"

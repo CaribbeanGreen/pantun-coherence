@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.cache/
+models/
+*.pt
+*.bin
+*.safetensors
+.env
+
+# Local tooling (shortcuts into .venv, editor settings)
+.agents/
+.claude/
+.vscode/
+
+# PRIVATE: the pantun library must never leave this computer.
+# Keep these out of any git repository, cloud upload or shared folder.
+data/raw/
+data/pantun.csv
+data/skipped_from_raw.csv
+results/
+notebooks/*.ipynb
+# Third-party data without a stated licence (mesolitica/peribahasa-instructions): local use only.
+data/external/
