@@ -1,9 +1,29 @@
+# Cenderawasih design system (business case, Section 6, Exhibit 1).
 [theme]
-primaryColor = "#2a78d6"
+base = "light"
+primaryColor = "#0C525C"              # teal: trust, calm, knowledge
+backgroundColor = "#FBF7EE"           # cream: paper, manuscript
+secondaryBackgroundColor = "#F1EADB"
+textColor = "#1F2A2E"
+borderColor = "#E3DCCB"
+linkColor = "#0C525C"
+greenColor = "#2F7D4F"                # pass (always with a check icon)
+redColor = "#B4443C"                  # fail (always with a cross icon)
+orangeColor = "#A15C00"               # check / leans mismatch
+yellowColor = "#DEB251"               # gold: heritage (decoration only)
+blueColor = "#1B6E78"                 # pembayang teal
+grayColor = "#52606D"                 # can't tell (neutral)
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseRadius = "8px"                    # instructors: 8 px corners
+buttonRadius = "full"                 # pill buttons
+showWidgetBorder = true
+dataframeHeaderBackgroundColor = "#E8F0EF"
+dataframeHeaderTextColor = "#0C525C"
+chartCategoricalColors = ["#0C525C", "#B9BDB8", "#DEB251", "#8A4B1C", "#1B6E78"]
 
 [server]
-# Only this computer can open the app. The pantun corpus is private and must not be
-# reachable from other devices on the network.
+# Only this computer can open the app (see README: private data).
 address = "localhost"
 
 [browser]

@@ -7,6 +7,32 @@ CSC575 project (Group T-CDCS2306B1).
 > It is excluded in `.gitignore`, the demo only runs on `localhost`, and no pantun text is sent
 > to online services. Code and documentation can be shared; the data cannot.
 
+## How to run the demo (quick start)
+The project lives in `D:\CODES\pantun-coherence`. Setup (below) only has to be done once.
+
+**Easiest:** double-click **`Start Demo.bat`**. A black window opens and your browser opens
+http://localhost:8501. Keep the black window open while you use the demo, and close it to stop.
+
+**From PowerShell:**
+```
+cd D:\CODES\pantun-coherence
+.venv\Scripts\activate
+streamlit run app.py
+```
+Then open http://localhost:8501 (stop with `Ctrl+C`).
+
+What to expect:
+- The page appears in a few seconds. The five models then load in the background (about 1–2 minutes
+  after starting). After that each check takes 1–4 seconds (business case SRNF02: under 7 seconds).
+- Three views at the top, as in the business case (Section 6):
+  - **Pelajar** (students): Semak Pantun, Belajar Pantun and Sejarah Saya tabs. Form and result side
+    by side on a desktop, stacked on a phone.
+  - **Pensyarah** (instructors): side menu with Kelas saya (class CSV upload, work list, decisions),
+    Semakan (student requests, decision log) and Laporan (summary, CSV and PDF export).
+  - **Penyelidik & Pakar** (researchers / experts): per-model numbers, findings, expert queue and rating form.
+- Needs `data/pantun.csv` and `results/` (made by the steps below). Uses about 9.5 GB RAM.
+- If the folder is moved to another drive, `.venv` stops working. Delete `.venv` and run Setup again.
+
 ## Setup (Windows, CPU only)
 ```
 py -3.11 -m venv .venv
