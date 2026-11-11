@@ -13,9 +13,9 @@ import streamlit as st
 from scipy.stats import gaussian_kde
 
 from src.app_core import (DECISIONS_CSV, EXAMPLES, FLAGS_CSV, GOLD, LEAN_ENGLISH, MODEL_BY_SHORT, MODEL_LABEL,
-                          RATINGS_CSV, RESULTS, TEAL, analyse, baselines, check_lines, load_calibration,
+                          RATINGS_CSV, RESULTS, TEAL, analyse, baselines, check_lines, help_button, load_calibration,
                           load_corpus, load_result_table, read_log, reference, ready_models, save_rating,
-                          section_label, split_text)
+                          section_label, split_text, tour)
 
 LINK_TYPES = ["Word echo", "Sound echo", "Kiasan", "Same topic", "None"]
 st.session_state.setdefault("r_text", "\n".join(EXAMPLES["Pisang emas"]))
@@ -123,6 +123,7 @@ n_models = len(ready_models())
 with st.container(horizontal=True, vertical_alignment="bottom"):
     st.title("Research & Expert Review", anchor=False)
     st.caption(f"Corpus: {len(load_corpus()):,} published pantun · 13 books · {n_models} embedding models")
+    help_button("penyelidik", lang="en")
 
 flags, decisions = read_log(FLAGS_CSV), read_log(DECISIONS_CSV)
 queue = []
@@ -144,8 +145,9 @@ with tab_a:
         st.caption("Examples:")
         for name in EXAMPLES:
             st.button(name, key=f"r_ex_{name}", type="tertiary", on_click=use_example, args=(name,))
-    st.text_area("Pantun (4 lines, one per row)", key="r_text", height=120)
-    if st.button("Analyse", type="primary", icon=":material/search:"):
+    with st.container(key="r_input"):
+        st.text_area("Pantun (4 lines, one per row)", key="r_text", height=120)
+    if st.button("Analyse", key="r_go", type="primary", icon=":material/search:"):
         lines, problems = check_lines(split_text(st.session_state["r_text"]), malay=False)
         st.session_state.pop("r_result", None)
         for p in problems:
@@ -226,3 +228,13 @@ with tab_m:
         "- **Honesty:** the scores are not a judgement of literary quality; the analogical link (kiasan) is not "
         "measured by any method we tested.\n"
         "- **Reproduce:** `python -m src.build_corpus` → `python -m src.score` → `notebooks/evaluation.ipynb`.")
+
+tour("penyelidik", [
+    (".st-key-r_input", "Analyse a pantun 🔬", "Paste 4 lines or pick an example, then press <b>Analyse</b>."),
+    (".st-key-r_go", "Every number shown 📊",
+     "Overall result, <b>per-model scores</b>, where the pantun sits in the corpus, and the form and sound checks."),
+    ("[role='tablist']", "Findings, queue and method 🗂️",
+     "<b>Findings</b>: the full evaluation. <b>Expert queue</b>: pantun sent by students and instructors. "
+     "<b>Method</b>: models and rules."),
+    (".st-key-help_penyelidik", "Tutorial video ▶️", "Press <b>How to use</b> any time to watch the video."),
+], lang="en")

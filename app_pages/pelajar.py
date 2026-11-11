@@ -11,7 +11,8 @@ import pandas as pd
 import streamlit as st
 
 from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
-                          check_lines, dial, dials, load_calibration, pantun_card, rhyme_text, save_flag)
+                          check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
+                          save_flag, tour)
 
 KEYS = ["s_l1", "s_l2", "s_l3", "s_l4"]
 
@@ -42,6 +43,7 @@ def check_now():
     if not problems:
         res = analyse(lines)
         st.session_state["s_result"] = res
+        st.session_state["s_celebrate"] = res["sound"] == 10 and res["rules"] == 4   # confetti once
         st.session_state["s_history"].insert(0, {"time": datetime.now(), "lines": lines, "sound": res["sound"],
                                                  "meaning": res["p_avg"], "rules": res["rules"],
                                                  "lean": res["lean"]})
@@ -49,14 +51,15 @@ def check_now():
 
 def write_screen():
     """Screen A (Exhibit 3): write a pantun."""
-    st.markdown(":blue-badge[🖼️ **Pembayang** · baris 1–2]")
-    st.text_input("Baris 1", key="s_l1", label_visibility="collapsed", placeholder="Baris 1")
-    st.text_input("Baris 2", key="s_l2", label_visibility="collapsed", placeholder="Baris 2")
-    st.markdown(":orange-badge[💬 **Maksud** · baris 3–4]")
-    st.text_input("Baris 3", key="s_l3", label_visibility="collapsed", placeholder="Baris 3")
-    st.text_input("Baris 4", key="s_l4", label_visibility="collapsed", placeholder="Baris 4")
+    with st.container(key="s_lines"):
+        st.markdown(":blue-badge[🖼️ **Pembayang** · baris 1–2]")
+        st.text_input("Baris 1", key="s_l1", label_visibility="collapsed", placeholder="Baris 1")
+        st.text_input("Baris 2", key="s_l2", label_visibility="collapsed", placeholder="Baris 2")
+        st.markdown(":orange-badge[💬 **Maksud** · baris 3–4]")
+        st.text_input("Baris 3", key="s_l3", label_visibility="collapsed", placeholder="Baris 3")
+        st.text_input("Baris 4", key="s_l4", label_visibility="collapsed", placeholder="Baris 4")
 
-    if st.button("Semak Pantun Saya", type="primary", icon=":material/search:", width="stretch"):
+    if st.button("Semak Pantun Saya", key="s_go", type="primary", icon=":material/search:", width="stretch"):
         with st.spinner("Membaca pantun anda…"):
             check_now()
     for p in st.session_state.get("s_problems", []):
@@ -82,13 +85,15 @@ def result_screen(res):
     else:
         headline = "Mari cuba lagi bersama! 💪"   # a low score is never shown as failure
     banner("Hasil semakan", headline)
+    if st.session_state.pop("s_celebrate", False):
+        confetti()
 
     _, _, meaning_caption = LEAN_MALAY[res["lean"]]
     meaning_colour = GOLD if res["lean"] != "not_belong" else CHECK
     dials([
-        dial(f"{res['sound']:g}/10", res["sound"] / 10, TEAL, "Bunyi", "Rima a-b-a-b", "🎵"),
-        dial(f"{100 * res['p_avg']:.0f}%", res["p_avg"], meaning_colour, "Makna", meaning_caption, "💭"),
-        dial(f"{res['rules']}/4", res["rules"] / 4, "#1B6E78", "Peraturan", "Bentuk pantun", "📋"),
+        dial(f"{res['sound']:g}/10", res["sound"] / 10, TEAL, "Bunyi", "Rima a-b-a-b", "🎵", delay=0.1),
+        dial(f"{100 * res['p_avg']:.0f}%", res["p_avg"], meaning_colour, "Makna", meaning_caption, "💭", delay=0.25),
+        dial(f"{res['rules']}/4", res["rules"] / 4, "#1B6E78", "Peraturan", "Bentuk pantun", "📋", delay=0.4),
     ])
 
     # What you did well (praise first)
@@ -119,12 +124,12 @@ def result_screen(res):
     # Side by side on a desktop, stacked on a phone
     cards_row([
         card_html("Apa yang anda buat dengan baik", "<br>".join(f"✅ {html.escape(g)}" for g in good),
-                  background="#E8F0EF", border="#C9DEDB"),
-        card_html("💡 Petua", tip),
+                  background="#E8F0EF", border="#C9DEDB", delay=0.6),
+        card_html("💡 Petua", tip, delay=0.75),
     ])
     card("", "🤝 <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud "
          "pantun anda tidak baik. Guru anda membuat keputusan akhir.",
-         background="#F8ECCF", border="#EBD39A")
+         background="#F8ECCF", border="#EBD39A", delay=0.9)
 
     with st.expander("Kenapa skor makna dekat 50%?", icon=":material/help:"):
         test = load_calibration()["held_out_test"]
@@ -195,6 +200,8 @@ def history_screen():
 # ---- Page -------------------------------------------------------------------------------------------
 _, middle, _ = st.columns([1, 12, 1])
 with middle.container(key="pelajar"):
+    with st.container(horizontal=True, horizontal_alignment="right"):
+        help_button("pelajar")
     banner("Cenderawasih · Semak Pantun", "Semak Pantun Anda ✨",
            "Adakah pembayang dan maksud anda sepadan? Tulis 4 baris, kemudian tekan butang.")
     tab_check, tab_learn, tab_hist = st.tabs(["🔍 Semak Pantun", "📘 Belajar Pantun", "🕘 Sejarah Saya"])
@@ -202,7 +209,7 @@ with middle.container(key="pelajar"):
         left, right = st.columns([1, 1], gap="large")
         with left:
             write_screen()
-        with right:
+        with right.container(key="s_right"):
             res = st.session_state.get("s_result")
             if res:
                 result_screen(res)
@@ -214,3 +221,15 @@ with middle.container(key="pelajar"):
         learn_screen()
     with tab_hist:
         history_screen()
+
+tour("pelajar", [
+    (".st-key-s_lines", "Tulis pantun anda ✍️",
+     "Baris 1–2 ialah <b>pembayang</b>, baris 3–4 ialah <b>maksud</b>. Tiada pantun? Tekan satu contoh di bawah."),
+    (".st-key-s_go", "Tekan Semak 🔍", "Komputer menyemak <b>bunyi, makna dan peraturan</b> dalam beberapa saat."),
+    (".st-key-s_right", "Baca hasil anda 🎯",
+     "Tiga dial: <b>Bunyi</b> (rima), <b>Makna</b> (tanda sepadan) dan <b>Peraturan</b> (bentuk). "
+     "Pujian dahulu, kemudian petua. Tidak setuju? Minta guru semak."),
+    (".st-key-pelajar [role='tablist']", "Belajar & Sejarah 📘",
+     "<b>Belajar Pantun</b> untuk teori dengan contoh. <b>Sejarah Saya</b> untuk pantun yang anda semak."),
+    (".st-key-help_pelajar", "Perlukan bantuan? ▶️", "Tekan <b>Cara guna</b> bila-bila masa untuk video tutorial."),
+])

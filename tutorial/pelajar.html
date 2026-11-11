@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<title>Cara guna · Pelajar</title>
+<link rel="stylesheet" href="stage.css">
+<style>
+  .viewport { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; overflow: hidden; }
+  .page { position: absolute; left: 0; top: 0; width: 1140px; font-family: 'Nunito', sans-serif; }
+  .topbar { height: 60px; background: var(--teal); display: flex; align-items: center; padding: 0 36px; color: #fff; }
+  .topbar .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 19px; }
+  .topbar nav { margin-left: auto; display: flex; gap: 30px; font-size: 16px; font-weight: 700; color: #cfe3e3; }
+  .topbar nav span { padding: 6px 2px; }
+  .topbar nav .on { color: #fff; border-bottom: 3px solid var(--gold); }
+  h2 { position: absolute; left: 40px; top: 90px; font-size: 32px; font-weight: 900; color: var(--teal); }
+  .sub { position: absolute; left: 40px; top: 136px; font-size: 17px; color: var(--muted); }
+  .col { position: absolute; left: 40px; top: 178px; width: 500px; }
+  .lab { display: inline-block; border-radius: 10px; padding: 4px 12px; font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+  .lab.p { background: #E3EFEF; color: var(--teal2); } .lab.m { background: #F6E9D3; color: var(--brown); }
+  .in { height: 46px; border-radius: 14px; background: #fff; border: 2px solid #C9DEDB; margin-bottom: 10px;
+    font: 20px 'Lora', serif; display: flex; align-items: center; padding: 0 16px; color: var(--ink); }
+  .in.m { border-color: #EBD39A; }
+  .in.focus { border-color: var(--teal); box-shadow: 0 0 0 4px rgba(12, 82, 92, .15); }
+  .in.m.focus { border-color: var(--orange); box-shadow: 0 0 0 4px rgba(161, 92, 0, .15); }
+  .gap { height: 8px; }
+  #go { width: 500px; height: 54px; font-size: 19px; margin-top: 8px; }
+  .ex { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .ex b { color: var(--teal); margin-left: 8px; }
+  .right { position: absolute; left: 580px; top: 178px; width: 520px; }
+  .placeholder { border: 2px dashed var(--line); border-radius: 18px; padding: 26px; color: var(--muted); font-size: 16px; text-align: center; }
+  .loading { position: absolute; left: 0; top: 0; width: 520px; padding: 22px; font-size: 17px; color: var(--teal); font-weight: 700;
+    display: flex; gap: 12px; align-items: center; opacity: 0; }
+  .spinner { width: 24px; height: 24px; border-radius: 50%; border: 4px solid #cfe0df; border-top-color: var(--teal); }
+  .head { background: var(--teal); color: #fff; border-radius: 18px 18px 0 0; padding: 14px 20px; }
+  .head small { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; }
+  .head small .dot { width: 18px; height: 18px; }
+  .head div { font-size: 26px; font-weight: 900; margin-top: 4px; }
+  .dials { display: flex; justify-content: space-around; background: #fff; border-radius: 0 0 18px 18px; padding: 16px 8px 14px;
+    border: 2px solid var(--line); border-top: none; }
+  .dial { text-align: center; width: 150px; }
+  .dial .ring { width: 96px; height: 96px; margin: 0 auto; }
+  .dial .ring > div { width: 74px; height: 74px; font-size: 22px; }
+  .dial b { display: block; margin-top: 6px; font-size: 16px; }
+  .dial span { font-size: 13px; color: var(--muted); }
+  .cards { display: flex; gap: 14px; margin-top: 14px; }
+  .card { flex: 1; border-radius: 18px; padding: 14px 16px; border: 2px solid var(--line); background: #fff; font-size: 15px; line-height: 1.6; }
+  .card h4 { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+  .card.good { background: var(--mint); border-color: #C9DEDB; }
+  .card.remind { background: #F8ECCF; border-color: #EBD39A; margin-top: 14px; }
+  #disagree { width: 520px; height: 50px; margin-top: 14px; border: 2px solid var(--teal); color: var(--teal); background: #fff; font-size: 17px; }
+  .toast { position: absolute; right: 30px; top: 80px; background: var(--green); color: #fff; padding: 12px 20px; border-radius: 14px;
+    font-weight: 800; font-size: 16px; opacity: 0; box-shadow: 0 10px 24px rgba(47,125,79,.35); z-index: 30; }
+  .confetti i { position: absolute; width: 9px; height: 14px; border-radius: 2px; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="step"></div>
+
+  <div class="window">
+    <div class="chrome"><i style="background:#EC6A5E"></i><i style="background:#F4BF4F"></i><i style="background:#61C554"></i>
+      <div class="url">🔒 localhost:8501 · Pelajar</div></div>
+    <div class="viewport"><div class="page" id="page">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
+        <nav><span class="on" id="t1">🔍 Semak Pantun</span><span id="t2">📘 Belajar Pantun</span><span id="t3">🕘 Sejarah Saya</span></nav>
+      </div>
+      <div class="songket"></div>
+      <h2>Semak Pantun Anda ✨</h2>
+      <div class="sub">Adakah pembayang dan maksud anda sepadan? Tulis 4 baris, kemudian tekan butang.</div>
+
+      <div class="col">
+        <div class="lab p">🖼️ Pembayang · baris 1–2</div>
+        <div class="in" id="l1"><span></span></div>
+        <div class="in" id="l2"><span></span></div>
+        <div class="gap"></div>
+        <div class="lab m">💬 Maksud · baris 3–4</div>
+        <div class="in m" id="l3"><span></span></div>
+        <div class="in m" id="l4"><span></span></div>
+        <div class="btn primary" id="go">🔍 Semak Pantun Saya</div>
+        <div class="ex">Tiada pantun? Cuba contoh: <b>Pisang emas</b> <b>Francis Light</b> <b>Pandai menyimpai</b></div>
+      </div>
+
+      <div class="right">
+        <div class="placeholder" id="ph">Hasil anda akan muncul di sini:<br><b>Bunyi</b> · <b>Makna</b> · <b>Peraturan</b></div>
+        <div class="loading" id="loading"><div class="spinner" id="spin"></div>Membaca pantun anda…</div>
+        <div id="result" style="position:absolute;left:0;top:0;width:520px">
+          <div id="res-top">
+            <div class="head"><small><span class="dot"></span>Hasil semakan</small><div>Bagus! Rima anda cantik 🎉</div></div>
+            <div class="songket"></div>
+            <div class="dials" id="dials">
+              <div class="dial" id="d1"><div class="ring" id="r1"><div>10/10</div></div><b>🎵 Bunyi</b><span>Rima a-b-a-b</span></div>
+              <div class="dial" id="d2"><div class="ring" id="r2"><div>57%</div></div><b>💭 Makna</b><span>Tidak pasti</span></div>
+              <div class="dial" id="d3"><div class="ring" id="r3"><div>4/4</div></div><b>📋 Peraturan</b><span>Bentuk pantun</span></div>
+            </div>
+          </div>
+          <div class="cards">
+            <div class="card good" id="c1"><h4>Apa yang anda buat dengan baik</h4>✅ 4 baris lengkap<br>✅ 8–12 suku kata<br>✅ Rima akhir -ar / -i<br>✅ Unsur alam</div>
+            <div class="card" id="c2"><h4>💡 Petua</h4>Perkataan <b>"dibawa"</b> muncul dalam kedua-dua bahagian. Itu satu petunjuk yang baik!</div>
+          </div>
+          <div class="card remind" id="c3">🤝 <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud pantun anda tidak baik. Guru anda membuat keputusan akhir.</div>
+          <div class="btn" id="disagree">🙋 Saya tidak setuju — minta guru semak</div>
+        </div>
+        <div class="confetti" id="confetti"></div>
+      </div>
+      <div class="toast" id="toast">✓ Dihantar kepada guru</div>
+    </div></div>
+  </div>
+
+  <div class="titlecard" id="intro">
+    <div class="songket" style="top:0"></div>
+    <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
+    <h1>Cara guna: Pelajar</h1>
+    <p>Semak pantun anda dalam 4 langkah mudah</p>
+    <div class="chips"><span>✍️ Tulis</span><span>🔍 Semak</span><span>🎯 Baca hasil</span><span>🙋 Minta guru</span></div>
+    <div class="songket" style="bottom:0"></div>
+  </div>
+  <div class="titlecard" id="outro">
+    <div class="songket" style="top:0"></div>
+    <h1>Selamat mencuba! ✨</h1>
+    <p>Buka <b>Pelajar → Semak Pantun</b> dan tulis pantun pertama anda.</p>
+    <div class="brand" style="margin-top:12px"><span class="dot"></span>Cenderawasih Sdn. Bhd.</div>
+    <div class="songket" style="bottom:0"></div>
+  </div>
+
+  <div id="spot"></div>
+  <div id="click"></div>
+  <div id="cursor"><svg viewBox="0 0 24 24"><path d="M4 2l15 8.5-6.6 1.6L16 20l-3 1.4-3.6-8-5.4 4.6z" fill="#fff" stroke="#1F2A2E" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  <div id="caption"><span></span></div>
+  <div id="progress"><i></i></div>
+</div>
+
+<script src="stage.js"></script>
+<script>
+const D = 57;
+
+// Intro and outro
+at("#intro .brand", 0.2, 0.6, [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }]);
+pop("#intro h1", 0.5, 0.7);
+show("#intro p", 1.0);
+document.querySelectorAll("#intro .chips span").forEach((s, i) => pop(s, 1.4 + i * 0.18));
+at("#intro", 3.6, 0.6, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(1.06)" }], "ease-in");
+at(".window", 3.6, 0.8, [{ opacity: 0, transform: "translateY(30px) scale(.97)" }, { opacity: 1, transform: "none" }]);
+at("#outro", 52.2, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
+pop("#outro h1", 52.6, 0.7);
+show("#outro p", 53.1);
+
+// 1-2: write the pantun
+const lines = ["Pisang emas dibawa belayar,", "Masak sebiji di atas peti;", "Hutang emas boleh dibayar,", "Hutang budi dibawa mati."];
+const typeAt = [5.3, 7.6, 10.5, 12.6];
+lines.forEach((text, i) => {
+  typeText(`#l${i + 1} span`, text, typeAt[i], 19);
+  classBetween(`#l${i + 1}`, "focus", typeAt[i] - 0.3, typeAt[i] + text.length / 19 + 0.25);
+});
+
+// 3: press the button
+classBetween("#go", "pressed", 15.4, 15.65);
+at("#ph", 15.6, 0.3, [{ opacity: 1 }, { opacity: 0 }], "ease");
+at("#loading", 15.7, 1.5, [{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.87 }, { opacity: 0 }], "linear");
+at("#spin", 15.7, 1.3, [{ transform: "rotate(0)" }, { transform: "rotate(540deg)" }], "linear");
+
+// Result: header pops, dials fill, confetti for a perfect rhyme
+at("#result", 17.0, 0.01, [{ opacity: 0 }, { opacity: 1 }]);
+pop("#res-top .head", 17.0, 0.5);
+show("#dials", 17.3, 0.5);
+ring("#r1", 1.0, "#0C525C", 17.6);
+ring("#r2", 0.57, "#DEB251", 17.8);
+ring("#r3", 1.0, "#1B6E78", 18.0);
+["#d1", "#d2", "#d3"].forEach((d, i) => pop(d, 17.4 + i * 0.15, 0.5));
+const conf = document.querySelector("#confetti");
+const colours = ["#DEB251", "#0C525C", "#1B6E78", "#2F7D4F", "#F3D58E", "#B4443C"];
+for (let i = 0; i < 46; i++) {
+  const p = document.createElement("i");
+  const x0 = 260, y0 = 40, ang = (Math.PI * (0.15 + 0.7 * ((i * 37) % 46) / 46)), v = 170 + ((i * 53) % 120);
+  p.style.background = colours[i % colours.length];
+  p.style.left = x0 + "px"; p.style.top = y0 + "px";
+  conf.appendChild(p);
+  const dx = -Math.cos(ang) * v * 1.6, dy = -Math.sin(ang) * v;
+  at(p, 17.1 + (i % 5) * 0.03, 1.6, [
+    { opacity: 0, transform: "translate(0,0) rotate(0)" },
+    { opacity: 1, transform: "translate(0,0) rotate(0)", offset: 0.02 },
+    { opacity: 1, transform: `translate(${dx * 0.8}px, ${dy}px) rotate(${180 + i * 23}deg)`, offset: 0.45 },
+    { opacity: 0, transform: `translate(${dx}px, ${dy + 260}px) rotate(${420 + i * 31}deg)` }], "cubic-bezier(.2,.7,.4,1)");
+}
+
+// 5: praise and tip
+show("#c1", 29.0); show("#c2", 29.3);
+show("#c3", 36.7); show("#disagree", 37.0);
+
+// Scroll: a little for the praise cards, more for the reminder and the disagree button, then back up
+const sc = "cubic-bezier(.45,0,.2,1)", S0 = 28.6, SD = 45.4 - 28.6, o = (t) => (t - S0) / SD;
+at("#page", S0, SD, [
+  { transform: "translateY(0)", easing: sc }, { transform: "translateY(-130px)", offset: o(29.5) },
+  { transform: "translateY(-130px)", offset: o(35.8), easing: sc }, { transform: "translateY(-312px)", offset: o(36.7) },
+  { transform: "translateY(-312px)", offset: o(44.4), easing: sc }, { transform: "translateY(0)" }], "linear");
+at("#toast", 42.3, 1.9, [{ opacity: 0, transform: "translateY(-10px)" }, { opacity: 1, transform: "none", offset: 0.2 },
+                         { opacity: 1, transform: "none", offset: 0.85 }, { opacity: 0, transform: "none" }], "linear");
+
+steps([
+  [4.0, 9.6, "1", "Tulis pembayang"],
+  [9.6, 14.6, "2", "Tulis maksud"],
+  [14.6, 18.6, "3", "Tekan Semak"],
+  [18.6, 28.8, "4", "Baca tiga dial"],
+  [28.8, 35.6, "5", "Pujian & petua"],
+  [35.6, 44.4, "6", "Tidak setuju?"],
+  [44.4, 52.2, "7", "Belajar & Sejarah"],
+]);
+
+cursor([
+  [4.2, [760, 460]],
+  [4.9, "#l1", true],
+  [7.2, "#l2", true],
+  [10.1, "#l3", true],
+  [12.2, "#l4", true],
+  [14.9, [380, 560]],
+  [15.4, "#go", true],
+  [16.5, [520, 560]],
+  [19.2, [700, 470]],
+  [41.4, [700, 470]],
+  [41.9, "#disagree"],
+  [42.0, "#disagree", true],
+  [43.0, "#disagree"],
+  [44.0, [900, 420]],
+  [45.8, "#t2"],
+  [48.2, "#t3"],
+  [51.5, [1000, 300]],
+]);
+
+spotlight([
+  [19.4, 22.4, "#d1"], [22.4, 25.6, "#d2"], [25.6, 28.6, "#d3"],
+  [29.9, 35.4, "#c1, #c2"],
+  [37.6, 40.6, "#c3"], [40.6, 43.9, "#disagree"],
+  [45.6, 48.4, "#t2"], [48.4, 51.6, "#t3"],
+]);
+
+captions([
+  [4.2, 9.5, "Baris 1–2 ialah <b>pembayang</b> — selalunya tentang alam."],
+  [9.7, 14.4, "Baris 3–4 ialah <b>maksud</b> — pesanan sebenar pantun."],
+  [14.7, 18.6, "Tekan <b>Semak Pantun Saya</b>. Hasil keluar dalam beberapa saat."],
+  [19.4, 22.4, "🎵 <b>Bunyi</b>: rima a-b-a-b (baris 1 & 3, baris 2 & 4)"],
+  [22.4, 25.6, "💭 <b>Makna</b>: ada tanda pembayang dan maksud sepadan?"],
+  [25.6, 28.6, "📋 <b>Peraturan</b>: 4 baris, 8–12 suku kata, rima, unsur alam"],
+  [29.9, 35.4, "Pujian dahulu, kemudian satu <b>petua</b> untuk pantun anda."],
+  [37.6, 40.6, "Komputer belum faham <b>kiasan</b> — guru membuat keputusan akhir."],
+  [40.6, 44.2, "Tidak setuju? Tekan butang ini — <b>guru anda akan semak</b>."],
+  [45.6, 48.4, "<b>Belajar Pantun</b>: kenali bentuk pantun dengan contoh."],
+  [48.4, 51.8, "<b>Sejarah Saya</b>: lihat semula pantun yang anda semak."],
+]);
+
+start(D);
+</script>
+</body>
+</html>

@@ -313,6 +313,61 @@ FONTS_CSS = """<style>
 @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Nunito:wght@400;600;700;800&display=swap');
 </style>"""
 
+# Motion and polish for all three views. Everything is switched off for people who ask for less motion.
+UX_CSS = """<style>
+@property --p { syntax: '\\3c number>'; inherits: false; initial-value: 0; }  /* \\3c is the less-than sign, escaped: the sanitiser drops tag-like text */
+@keyframes cz-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes cz-pop { 0% { opacity: 0; transform: scale(.86); } 70% { opacity: 1; transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes cz-fill { from { --p: 0; } to { --p: var(--target); } }
+@keyframes cz-shine { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+@keyframes cz-fall { 0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+                     100% { opacity: 0; transform: translate(var(--dx), 340px) rotate(var(--rot)); } }
+
+.cz-rise { animation: cz-rise .55s cubic-bezier(.22,.8,.3,1) both; }
+.cz-pop { animation: cz-pop .5s cubic-bezier(.22,.8,.3,1) both; }
+.cz-ring { --p: var(--target); background: conic-gradient(var(--c) calc(var(--p) * 1deg), #E6E1D6 0);
+           animation: cz-fill 1.3s cubic-bezier(.22,.8,.3,1) both; animation-delay: var(--delay, 0s); }
+.cz-card { transition: transform .2s ease, box-shadow .2s ease; }
+.cz-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(31, 42, 46, .08); }
+.cz-confetti { position: fixed; left: 50%; top: 28%; width: 0; height: 0; z-index: 9999; pointer-events: none; }
+.cz-confetti i { position: absolute; width: 9px; height: 14px; border-radius: 2px; opacity: 0;
+                 animation: cz-fall 1.8s cubic-bezier(.2,.7,.4,1) forwards; }
+
+/* Buttons: lift on hover, press on click */
+.stButton button, .stDownloadButton button, .stFormSubmitButton button, .stPopover button {
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.stButton button:hover, .stDownloadButton button:hover, .stFormSubmitButton button:hover, .stPopover button:hover {
+  transform: translateY(-1px); box-shadow: 0 6px 16px rgba(12, 82, 92, .14); }
+.stButton button:active, .stDownloadButton button:active { transform: translateY(1px); box-shadow: none; }
+.stButton button[kind="primary"] { box-shadow: 0 4px 0 #083b42; }
+.stButton button[kind="primary"]:hover { box-shadow: 0 6px 0 #083b42, 0 8px 18px rgba(12, 82, 92, .18); }
+.stButton button[kind="primary"]:active { box-shadow: 0 1px 0 #083b42; }
+
+/* Inputs: soft focus glow */
+.stTextInput input:focus, .stTextArea textarea:focus { box-shadow: 0 0 0 3px rgba(12, 82, 92, .15) !important; }
+
+/* Tabs: gold underline */
+.stTabs [data-baseweb="tab-highlight"], .stTabs [role="tablist"] > div:last-child[aria-hidden] { background: #DEB251 !important; height: 3px !important; }
+.stTabs [role="tab"] { transition: color .2s ease; }
+
+/* Metric cards, bordered boxes and tables appear with a gentle rise */
+[data-testid="stMetric"] { animation: cz-rise .5s cubic-bezier(.22,.8,.3,1) both; background: #fff; }
+[data-testid="stMetricValue"] { color: #0C525C; font-weight: 800; }
+[data-testid="stDataFrame"], [data-testid="stVerticalBlockBorderWrapper"] { animation: cz-rise .45s ease both; }
+[data-testid="stExpander"] details { border-radius: 14px; }
+[data-testid="stAlert"] { border-radius: 12px; }
+
+/* Loading text shimmer */
+[data-testid="stSpinner"] p { background: linear-gradient(90deg, #0C525C 30%, #DEB251 50%, #0C525C 70%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: cz-shine 2.2s linear infinite; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition: none !important; }
+  .cz-confetti { display: none; }
+}
+</style>"""
+
 # The SVG is fully percent-encoded so it has no quotes or "<" that would end the style="..." attribute early.
 _SONGKET_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' width='22' height='12'>"
                 "<rect width='22' height='12' fill='#DEB251'/>"
@@ -321,9 +376,49 @@ SONGKET = (f"background-image:url(data:image/svg+xml,{urllib.parse.quote(_SONGKE
            "background-repeat:repeat-x;height:12px;")
 
 
+# Page background: cream paper with soft teal and gold light and a faint songket diamond lattice.
+_LATTICE_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56'>"
+                "<path d='M28 4 L52 28 L28 52 L4 28 Z' fill='none' stroke='#0C525C' stroke-opacity='.035' stroke-width='1'/>"
+                "<path d='M28 20 L36 28 L28 36 L20 28 Z' fill='#DEB251' fill-opacity='.07'/></svg>")
+_LATTICE = urllib.parse.quote(_LATTICE_SVG, safe="")   # encoded: no "<" for the sanitiser to trip on
+THEME_CSS = f"""<style>
+.stApp {{
+  background:
+    radial-gradient(1100px 520px at 8% -8%, rgba(12, 82, 92, .10), transparent 62%),
+    radial-gradient(900px 480px at 100% 0%, rgba(222, 178, 81, .16), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(27, 110, 120, .07), transparent 65%),
+    url("data:image/svg+xml,{_LATTICE}"),
+    #FBF7EE;
+  background-attachment: fixed;
+}}
+[data-testid="stHeader"] {{ background: rgba(251, 247, 238, .82); backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(222, 178, 81, .35); }}
+[data-testid="stHeader"]::after {{ content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 3px;
+  background: linear-gradient(90deg, transparent, #DEB251 20%, #0C525C 50%, #DEB251 80%, transparent); opacity: .55; }}
+[data-testid="stMainBlockContainer"] {{ padding-top: 3.2rem; }}
+[data-testid="stMetric"], [data-testid="stVerticalBlockBorderWrapper"] {{ border-radius: 14px; }}
+[data-testid="stVerticalBlockBorderWrapper"] {{ background: rgba(255, 255, 255, .72); backdrop-filter: blur(4px); }}
+.stTextInput input, .stTextArea textarea {{ background: rgba(255, 255, 255, .9) !important; }}
+[data-testid="stDialog"] [role="dialog"] {{ border-top: 6px solid #0C525C; border-radius: 18px; }}
+::selection {{ background: rgba(222, 178, 81, .45); }}
+</style>"""
+
+
 def fonts():
-    """Load Lora (pantun text) and Nunito (student view). Inter and JetBrains Mono come from config."""
-    st.html(FONTS_CSS)
+    """Load Lora (pantun text) and Nunito (student view), plus the theme, motion and polish styles."""
+    st.html(FONTS_CSS + UX_CSS + THEME_CSS)
+
+
+def confetti():
+    """A short burst of confetti in the brand colours (shown once, for a perfect rhyme)."""
+    colours = [GOLD, TEAL, PEMBAYANG, PASS, "#F3D58E", FAIL]
+    pieces = []
+    for i in range(48):
+        dx = ((i * 53) % 520) - 260
+        rot = 360 + (i * 47) % 540
+        pieces.append(f'<i style="background:{colours[i % len(colours)]};--dx:{dx}px;--rot:{rot}deg;'
+                      f'left:{((i * 29) % 80) - 40}px;animation-delay:{(i % 6) * 0.04:.2f}s"></i>')
+    st.html(f'<div class="cz-confetti" aria-hidden="true">{"".join(pieces)}</div>')
 
 
 def songket_border():
@@ -333,7 +428,7 @@ def songket_border():
 def banner(kicker, title, subtitle="", font="Nunito"):
     """Teal header with the gold logo dot and a songket border (Exhibits 2-4)."""
     st.html(f"""
-<div style="background:{TEAL};border-radius:18px 18px 0 0;padding:18px 22px 16px;font-family:'{font}',sans-serif">
+<div class="cz-rise" style="background:{TEAL};border-radius:18px 18px 0 0;padding:18px 22px 16px;font-family:'{font}',sans-serif">
   <div style="display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:0.95rem">
     <span style="width:22px;height:22px;border-radius:50%;background:{GOLD};display:inline-block"></span>{html.escape(kicker)}
   </div>
@@ -357,17 +452,17 @@ def pantun_card(lines, compact=False, size="1.15rem"):
 </div>""")
 
 
-def dial(value_text, fraction, colour, label, caption, icon, font="Nunito"):
-    """Round score dial (Exhibit 2, label 5): a ring that fills to `fraction`.
+def dial(value_text, fraction, colour, label, caption, icon, font="Nunito", delay=0.0):
+    """Round score dial (Exhibit 2, label 5): a ring that fills up to `fraction` when it appears.
 
-    Drawn with a CSS conic gradient, because st.html removes inline <svg>.
+    Drawn with a CSS conic gradient (st.html removes inline <svg>); the fill is animated in UX_CSS.
     """
     deg = 360 * max(0.0, min(1.0, fraction))
     return f"""
-<div style="text-align:center;font-family:'{font}',sans-serif;flex:1 1 0;min-width:84px">
-  <div role="img" aria-label="{html.escape(label)} {html.escape(value_text)}"
-       style="width:88px;height:88px;margin:0 auto;border-radius:50%;
-              background:conic-gradient({colour} {deg:.1f}deg, #E6E1D6 0);display:flex;align-items:center;justify-content:center">
+<div class="cz-pop" style="text-align:center;font-family:'{font}',sans-serif;flex:1 1 0;min-width:84px;animation-delay:{delay:.2f}s">
+  <div class="cz-ring" role="img" aria-label="{html.escape(label)} {html.escape(value_text)}"
+       style="--c:{colour};--target:{deg:.1f};--delay:{delay + 0.15:.2f}s;width:88px;height:88px;margin:0 auto;border-radius:50%;
+              display:flex;align-items:center;justify-content:center">
     <div style="width:68px;height:68px;border-radius:50%;background:#FBF7EE;display:flex;align-items:center;
                 justify-content:center;font-size:1.2rem;font-weight:800;color:#1F2A2E">{html.escape(value_text)}</div>
   </div>
@@ -381,12 +476,13 @@ def dials(items):
             + "".join(items) + "</div>")
 
 
-def card_html(title, body_html, background="#ffffff", border="#E3DCCB", font="Nunito", title_colour="#1F2A2E"):
-    """Rounded card (student view). `title` and `body_html` must already be safe HTML."""
+def card_html(title, body_html, background="#ffffff", border="#E3DCCB", font="Nunito", title_colour="#1F2A2E",
+              delay=0.0):
+    """Rounded card (student view) that rises in after `delay` seconds. Inputs must already be safe HTML."""
     head = (f'<div style="font-weight:800;font-size:1.1rem;color:{title_colour};margin-bottom:6px">{title}</div>'
             if title else "")
     return f"""
-<div style="flex:1 1 240px;background:{background};border:2px solid {border};border-radius:18px;padding:14px 18px;font-family:'{font}',sans-serif">
+<div class="cz-card cz-rise" style="animation-delay:{delay:.2f}s;flex:1 1 240px;background:{background};border:2px solid {border};border-radius:18px;padding:14px 18px;font-family:'{font}',sans-serif">
   {head}<div style="color:#1F2A2E;line-height:1.6">{body_html}</div>
 </div>"""
 
@@ -403,3 +499,159 @@ def cards_row(cards):
 def section_label(text):
     """Small grey uppercase heading used in the researcher view (Exhibit 5)."""
     st.markdown(f":gray[**{text.upper()}**]")
+
+
+# ---------------------------------------------------------------------------
+# Help: tutorial video (assets/tutorial/<view>.mp4, made from tutorial/*.html) and a guided tour
+# ---------------------------------------------------------------------------
+
+TUTORIAL_DIR = PROJECT_ROOT / "assets" / "tutorial"
+
+# Spotlight tour that runs in the page. Steps whose element is not on the page are skipped.
+# Shown once per browser (remembered in localStorage, if the browser allows it), and again on request.
+_TOUR_JS = r"""
+<script>
+(() => {
+  const cfg = __CFG__;
+  const doc = document, win = window;
+  const storeKey = "cz_tour_done_" + cfg.view;
+  let done = false;
+  try { done = win.localStorage.getItem(storeKey) === "1"; } catch (e) {}
+  win.__czTour = win.__czTour || {};
+  if (win.__czTour[cfg.view] === cfg.nonce) return;          // this request was already shown
+  if (cfg.nonce === 0 && done) return;                         // first-visit tour already seen
+  win.__czTour[cfg.view] = cfg.nonce;
+
+  const old = doc.getElementById("cz-tour"); if (old) old.remove();
+  const css = doc.createElement("style");
+  css.textContent = `
+    #cz-tour { position: fixed; inset: 0; z-index: 1000001; pointer-events: none; font-family: 'Nunito', 'Inter', sans-serif; }
+    /* While the tour is open, drop the top menu bar under the dark overlay (this style goes when the tour ends) */
+    [data-testid="stHeader"], [data-testid="stToolbar"] { z-index: 1 !important; }
+    #cz-tour .hole { position: fixed; border-radius: 16px; border: 3px solid #DEB251; pointer-events: none;
+      box-shadow: 0 0 0 9999px rgba(20, 30, 32, .55), 0 0 26px rgba(222, 178, 81, .85);
+      transition: all .45s cubic-bezier(.22,.8,.3,1); }
+    #cz-tour .tip { position: fixed; width: 330px; background: #fff; border-radius: 18px; padding: 16px 18px 14px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.28); pointer-events: auto; border-top: 6px solid #0C525C;
+      transition: left .45s cubic-bezier(.22,.8,.3,1), top .45s cubic-bezier(.22,.8,.3,1); animation: czTip .35s ease both; }
+    @keyframes czTip { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    #cz-tour .n { font-size: 12.5px; font-weight: 800; color: #A15C00; letter-spacing: .4px; }
+    #cz-tour h4 { margin: 4px 0 6px; font-size: 19px; color: #0C525C; font-weight: 900; padding: 0; }
+    #cz-tour p { margin: 0; font-size: 15px; line-height: 1.55; color: #1F2A2E; }
+    #cz-tour .row { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    #cz-tour .dots { display: flex; gap: 5px; flex: 1 0 100%; margin-bottom: 4px; }
+    #cz-tour .dots i { width: 7px; height: 7px; border-radius: 50%; background: #E3DCCB; }
+    #cz-tour .dots i.on { background: #DEB251; width: 18px; border-radius: 4px; }
+    #cz-tour button { font: 700 14px 'Nunito', sans-serif; border-radius: 999px; padding: 7px 14px; cursor: pointer;
+      border: 1.5px solid #0C525C; background: #fff; color: #0C525C; white-space: nowrap; }
+    #cz-tour button.go { background: #0C525C; color: #fff; }
+    #cz-tour button.skip { border: none; color: #5b6670; padding: 7px 6px; margin-right: auto; }
+    @media (prefers-reduced-motion: reduce) { #cz-tour .hole, #cz-tour .tip { transition: none; animation: none; } }`;
+  const root = doc.createElement("div");
+  root.id = "cz-tour";
+  root.innerHTML = '<div class="hole"></div><div class="tip" role="dialog" aria-live="polite"></div>';
+  root.appendChild(css);
+
+  const start = () => {
+    const steps = cfg.steps.filter((s) => doc.querySelector(s.sel));
+    if (!steps.length) return;
+    doc.body.appendChild(root);
+    const hole = root.querySelector(".hole"), tip = root.querySelector(".tip");
+    let i = 0;
+
+    const place = () => {
+      const el = doc.querySelector(steps[i].sel);
+      if (!el) return;
+      const r = el.getBoundingClientRect(), pad = 8;
+      Object.assign(hole.style, { left: r.left - pad + "px", top: r.top - pad + "px",
+                                  width: r.width + 2 * pad + "px", height: r.height + 2 * pad + "px" });
+      const W = win.innerWidth, H = win.innerHeight, tw = Math.min(330, W - 24), th = tip.offsetHeight || 170;
+      tip.style.width = tw + "px";
+      let left = r.right + 18, top = r.top;
+      if (left + tw > W - 12) { left = Math.max(12, Math.min(W - tw - 12, r.left)); top = r.bottom + 16; }
+      if (top + th > H - 12) top = Math.max(12, r.top - th - 16);
+      tip.style.left = left + "px"; tip.style.top = Math.max(12, top) + "px";
+    };
+    const keys = (e) => {
+      if (e.key === "Escape") finish();
+      else if (e.key === "ArrowRight" && i < steps.length - 1) { i++; show(); }
+      else if (e.key === "ArrowLeft" && i > 0) { i--; show(); }
+    };
+    const finish = () => {
+      try { win.localStorage.setItem(storeKey, "1"); } catch (e) {}
+      root.remove(); win.removeEventListener("resize", place); doc.removeEventListener("scroll", place, true);
+      doc.removeEventListener("keydown", keys, true);
+    };
+    const render = () => {
+      const s = steps[i], last = i === steps.length - 1;
+      tip.innerHTML = `<div class="n">${cfg.labels.step} ${i + 1} / ${steps.length}</div><h4>${s.title}</h4><p>${s.text}</p>
+        <div class="row"><div class="dots">${steps.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
+        ${last ? "" : `<button class="skip">${cfg.labels.skip}</button>`}
+        ${i ? `<button class="back">${cfg.labels.back}</button>` : ""}
+        <button class="go">${last ? cfg.labels.done : cfg.labels.next}</button></div>`;
+      tip.style.animation = "none"; void tip.offsetWidth; tip.style.animation = "";
+      tip.querySelector(".go").onclick = () => (last ? finish() : (i++, show()));
+      const b = tip.querySelector(".back"); if (b) b.onclick = () => { i--; show(); };
+      const k = tip.querySelector(".skip"); if (k) k.onclick = finish;
+      tip.querySelector(".go").focus({ preventScroll: true });
+    };
+    const show = () => {
+      const el = doc.querySelector(steps[i].sel);
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      render(); place(); setTimeout(place, 350); setTimeout(place, 700);
+    };
+    win.addEventListener("resize", place); doc.addEventListener("scroll", place, true);
+    doc.addEventListener("keydown", keys, true);
+    show();
+  };
+  setTimeout(start, cfg.nonce === 0 ? 1200 : 300);   // wait for the page to finish drawing
+})();
+</script>"""
+
+TOUR_LABELS = {
+    "ms": {"step": "LANGKAH", "next": "Seterusnya →", "back": "← Kembali", "skip": "Langkau", "done": "Selesai ✓"},
+    "en": {"step": "STEP", "next": "Next →", "back": "← Back", "skip": "Skip", "done": "Done ✓"},
+}
+
+
+def tour(view, steps, lang="ms"):
+    """Guided spotlight tour. steps = [(css selector, title, text), ...]. Text must be safe HTML."""
+    nonce = st.session_state.get(f"tour_{view}", 0)
+    cfg = {"view": view, "nonce": nonce, "labels": TOUR_LABELS[lang],
+           "steps": [{"sel": s, "title": t, "text": x} for s, t, x in steps]}
+    code = _TOUR_JS.replace("__CFG__", json.dumps(cfg, ensure_ascii=False))
+    # The HTML sanitiser drops a <script> whose text contains "<tag"-like text, so write "<" as "\x3c" inside it.
+    head, body = code.split("<script>", 1)
+    body, tail = body.rsplit("</script>", 1)
+    body = re.sub(r"<(?=[/!\w])", lambda m: "\\x3c", body)
+    st.html(f"{head}<script>{body}</script>{tail}", unsafe_allow_javascript=True)
+
+
+HELP_TEXT = {
+    "ms": ("Cara guna", "Cara guna laman ini", "Mulakan lawatan berpandu",
+           "Tonton video (kira-kira 1 minit), atau ikut lawatan berpandu langkah demi langkah.",
+           "Video tutorial belum dibuat. Jalankan tutorial/render.py."),
+    "en": ("How to use", "How to use this page", "Start the guided tour",
+           "Watch the video (about 1 minute), or follow the step-by-step guided tour.",
+           "The tutorial video has not been made yet. Run tutorial/render.py."),
+}
+
+
+def help_button(view, lang="ms"):
+    """'Cara guna' button: opens the tutorial video, with a button to start the guided tour."""
+    label, title, start_label, intro, missing = HELP_TEXT[lang]
+
+    @st.dialog(title, width="large")
+    def _show():
+        st.caption(intro)
+        video = TUTORIAL_DIR / f"{view}.mp4"
+        if video.exists():
+            st.video(str(video), autoplay=True)
+        else:
+            st.info(missing, icon=":material/movie:")
+        if st.button(start_label, type="primary", icon=":material/tour:", width="stretch"):
+            st.session_state[f"tour_{view}"] = st.session_state.get(f"tour_{view}", 0) + 1
+            st.rerun()
+
+    if st.button(label, key=f"help_{view}", icon=":material/play_circle:", type="secondary"):
+        _show()

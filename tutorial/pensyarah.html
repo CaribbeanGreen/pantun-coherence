@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<title>Cara guna · Pensyarah</title>
+<link rel="stylesheet" href="stage.css">
+<style>
+  .viewport { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; overflow: hidden; }
+  .side { position: absolute; left: 0; top: 0; bottom: 0; width: 210px; background: var(--teal); color: #fff; padding: 22px 14px; }
+  .side .brand { display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 17px; margin: 0 6px 22px; }
+  .side .item { padding: 10px 12px; border-radius: 9px; font-size: 15px; font-weight: 600; color: #d4e5e5; margin-bottom: 4px; }
+  .side .item.on { background: rgba(255,255,255,.16); color: #fff; font-weight: 800; box-shadow: inset 3px 0 0 var(--gold); }
+  .side .snote { position: absolute; left: 20px; right: 16px; bottom: 22px; font-size: 12.5px; color: #b9d3d3; line-height: 1.5; }
+  .panel { position: absolute; left: 236px; top: 0; right: 0; bottom: 0; }
+  .tag { position: absolute; right: 18px; top: 10px; font-size: 12px; color: var(--muted); background: #EFE8DA; border-radius: 8px; padding: 3px 9px; z-index: 5; }
+  h2 { position: absolute; left: 0; top: 22px; font-size: 25px; font-weight: 800; color: var(--ink); }
+  .meta { position: absolute; left: 0; top: 60px; font-size: 13.5px; color: var(--muted); }
+  .exp { position: absolute; left: 300px; top: 52px; display: flex; gap: 8px; }
+  .exp .b { border: 1.5px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 12px; font-size: 13.5px; font-weight: 600; }
+  .exp .b.press { background: var(--mint); border-color: var(--teal); }
+  .drop { position: absolute; left: 0; top: 88px; width: 520px; height: 64px; border: 2px dashed #C9C2B2; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 14.5px; color: var(--muted); background: #FDFBF6; }
+  .drop.hot { border-color: var(--teal); background: #E8F0EF; color: var(--teal); }
+  .bar { position: absolute; left: 0; top: 160px; z-index: 3; background: var(--cream); width: 520px; font-size: 12.5px; color: var(--teal); font-weight: 600; }
+  .bar div { height: 7px; border-radius: 4px; background: #E3DCCB; margin-top: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--teal); }
+  .file { position: absolute; z-index: 55; display: flex; gap: 8px; align-items: center; background: #fff; border-radius: 10px; padding: 10px 14px;
+    box-shadow: 0 12px 28px rgba(0,0,0,.18); font: 600 14px 'Inter'; color: var(--ink); left: 1010px; top: 300px; }
+  .file b { width: 28px; height: 34px; border-radius: 4px; background: var(--green); color: #fff; font-size: 10px; display: grid; place-items: center; }
+  .cards { position: absolute; left: 0; top: 168px; width: 520px; display: flex; gap: 10px; }
+  .metric { flex: 1; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; padding: 8px 12px; }
+  .metric b { display: block; font-size: 26px; font-weight: 800; color: var(--teal); }
+  .metric span { font-size: 11.5px; color: var(--muted); }
+  .chips { position: absolute; left: 0; top: 252px; display: flex; gap: 6px; }
+  .chips > span { border: 1.5px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: 13px; background: #fff; }
+  .chips > .on { background: var(--teal); color: #fff; border-color: var(--teal); }
+  table { position: absolute; left: 0; top: 292px; width: 520px; border-collapse: collapse; font-size: 13px; background: #fff;
+    border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th { background: var(--mint); color: var(--teal); text-align: left; padding: 8px 10px; font-weight: 700; }
+  td { padding: 7px 10px; border-top: 1px solid #EFE9DD; white-space: nowrap; }
+  tr.sel td { background: #FDF4DD; box-shadow: inset 0 0 0 0 var(--gold); }
+  tr.sel td:first-child { box-shadow: inset 4px 0 0 var(--gold); }
+  .ok { color: var(--green); font-weight: 700; } .bad { color: var(--red); font-weight: 700; }
+  .lean { color: var(--orange); font-weight: 700; } .cant { color: #52606D; font-weight: 700; } .up { color: var(--green); font-weight: 700; }
+  .review { position: absolute; left: 548px; top: 14px; width: 330px; bottom: 14px; background: #fff; border-radius: 14px;
+    border: 1.5px solid var(--line); padding: 16px 18px; }
+  .review h3 { font-size: 18px; margin-bottom: 10px; }
+  .review .empty { color: var(--muted); font-size: 14px; margin-top: 120px; text-align: center; }
+  .rv { position: absolute; left: 18px; right: 18px; top: 48px; }
+  .pc { background: var(--paper); border-radius: 10px; padding: 10px 14px; font: 16px/1.55 'Lora', serif; }
+  .facts { font-size: 13.5px; line-height: 1.75; margin: 10px 0; }
+  .note { border: 1.5px solid var(--line); border-radius: 8px; height: 46px; padding: 8px 10px; font-size: 13.5px; color: var(--ink); }
+  .note .ph { color: #9aa3a6; }
+  .dbtn { margin-top: 9px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+  .dbtn.a { background: var(--teal); color: #fff; } .dbtn.b { border: 1.5px solid var(--teal); color: var(--teal); }
+  .dbtn.c { border: 1.5px solid var(--orange); color: var(--orange); }
+  .dbtn.press { filter: brightness(.85); transform: scale(.98); }
+  .rep h2, .rq h2 { top: 22px; }
+  .chart { position: absolute; top: 200px; width: 400px; }
+  .chart h4 { font-size: 14px; margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; margin-bottom: 9px; }
+  .row span { width: 120px; text-align: right; color: var(--muted); }
+  .row i { display: block; height: 18px; border-radius: 3px; }
+  .toast { position: absolute; right: 24px; bottom: 24px; background: var(--teal); color: #fff; border-radius: 12px; padding: 12px 16px;
+    font-size: 14px; font-weight: 700; display: flex; gap: 10px; align-items: center; box-shadow: 0 12px 26px rgba(0,0,0,.2); }
+  .rq table { top: 100px; width: 840px; }
+  .rq h4 { position: absolute; left: 0; font-size: 18px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="step"></div>
+  <div class="window">
+    <div class="chrome"><i style="background:#EC6A5E"></i><i style="background:#F4BF4F"></i><i style="background:#61C554"></i>
+      <div class="url">🔒 localhost:8501 · Pensyarah</div></div>
+    <div class="viewport">
+      <div class="tag">Contoh data</div>
+      <div class="side">
+        <div class="brand"><span class="dot"></span>Cenderawasih</div>
+        <div class="item" id="m1">📚 Kelas saya</div>
+        <div class="item" id="m2">📝 Semakan</div>
+        <div class="item" id="m3">📊 Laporan</div>
+        <div class="snote">Sistem membantu; pensyarah membuat keputusan akhir.</div>
+      </div>
+
+      <!-- Kelas saya -->
+      <div class="panel" id="pClass">
+        <h2>Kelas BM2 · Pantun Nasihat</h2>
+        <div class="meta" id="meta">Belum ada hantaran</div>
+        <div class="exp" id="exp"><div class="b">⬇ Eksport CSV</div><div class="b">📄 Eksport PDF</div></div>
+        <div class="drop" id="drop">⬆ Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b></div>
+        <div class="bar" id="bar">Menyemak pantun kelas… <span id="barn">0</span>/14<div><i id="bari"></i></div></div>
+        <div class="cards" id="cards">
+          <div class="metric" id="k1"><b id="n1">0</b><span>pantun disemak</span></div>
+          <div class="metric" id="k2"><b id="n2">0</b><span>gagal peraturan bentuk</span></div>
+          <div class="metric" id="k3"><b id="n3">0</b><span>dihantar kepada pakar</span></div>
+          <div class="metric" id="k4"><b id="n4">—</b><span>purata maklum balas pertama</span></div>
+        </div>
+        <div class="chips" id="chips"><span class="on" id="ch1">Perlu semakan (<span id="nrev">14</span>)</span><span>Semua</span><span>Gagal bentuk</span><span>Makna: tidak pasti</span></div>
+        <table id="tbl">
+          <tr><th>Pelajar</th><th>Bentuk</th><th>Bunyi</th><th>Makna</th><th>Keputusan pensyarah</th></tr>
+          <tr id="r1"><td>S001</td><td class="ok">✔ 4/4</td><td>10/10</td><td class="up">▲ Condong sepadan</td><td>—</td></tr>
+          <tr id="r2"><td>S002</td><td class="bad">✖ 3/4 rima</td><td>5/10</td><td class="cant">● Tidak pasti</td><td>—</td></tr>
+          <tr id="r3"><td>S004</td><td class="ok">✔ 4/4</td><td>7.5/10</td><td class="cant">● Tidak pasti</td><td id="dec3">—</td></tr>
+          <tr id="r4"><td>S009</td><td class="bad">✖ 3 baris</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr id="r5"><td>S013</td><td class="bad">✖ 2/4 rima</td><td>0/10</td><td class="lean">▼ Condong tidak sepadan</td><td id="dec5">—</td></tr>
+          <tr id="r6"><td>S014</td><td class="ok">✔ 4/4</td><td>10/10</td><td class="up">▲ Condong sepadan</td><td>—</td></tr>
+        </table>
+        <div class="review" id="review">
+          <h3 id="rvh">Semak</h3>
+          <div class="empty" id="rvEmpty">👆 Pilih pantun dalam senarai untuk menyemak.</div>
+          <div class="rv" id="rvA">
+            <div class="pc"><span class="pb">Kalau tuan pandai menyimpai,<br>Cubalah simpai taruk berturang;</span><br>
+              <span class="mk">Kalau tuan pandai mengungkai,<br>Cubalah ungkai di tangan orang.</span></div>
+            <div class="facts">✔ Bentuk 4/4 · ✔ Rima -ai / -ang<br>● Makna: <b>tidak pasti</b> (52%)<br>Perkataan dikongsi: <i>pandai, tuan</i></div>
+            <div class="note"><span id="noteA"></span><span class="ph" id="phA">Catatan untuk pelajar…</span></div>
+            <div class="dbtn a" id="bAgree">✔ Setuju dengan sistem</div>
+            <div class="dbtn b">✎ Ubah keputusan</div>
+            <div class="dbtn c">⚑ Hantar kepada pakar</div>
+          </div>
+          <div class="rv" id="rvB">
+            <div class="pc"><span class="pb">Francis Light membuka negeri,<br>Pulau dibangunkan jadi pelabuhan;</span><br>
+              <span class="mk">Kalau tuan pandai mengungkai,<br>Cubalah ungkai di tangan orang.</span></div>
+            <div class="facts">✖ Bentuk 2/4 · ✖ Rima -ri / -an<br>▼ Makna: <b>condong tidak sepadan</b> (38%)<br>Tiada perkataan dikongsi</div>
+            <div class="note"><span class="ph">Catatan untuk pelajar…</span></div>
+            <div class="dbtn a">✔ Setuju dengan sistem</div>
+            <div class="dbtn b">✎ Ubah keputusan</div>
+            <div class="dbtn c" id="bExpert">⚑ Hantar kepada pakar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Laporan -->
+      <div class="panel rep" id="pReport">
+        <h2>Laporan · Kelas BM2 · Pantun Nasihat</h2>
+        <div class="cards" style="top:70px;width:860px">
+          <div class="metric"><b>14</b><span>pantun disemak</span></div>
+          <div class="metric"><b>9</b><span>gagal peraturan bentuk</span></div>
+          <div class="metric"><b>1</b><span>dihantar kepada pakar</span></div>
+          <div class="metric"><b>0.6 min</b><span>purata maklum balas pertama</span></div>
+        </div>
+        <div class="chart" style="left:0"><h4>Bentuk pantun</h4>
+          <div class="row"><span>✔ 4/4</span><i id="b1" style="background:var(--teal);width:150px"></i>5</div>
+          <div class="row"><span>✖ 3/4</span><i id="b2" style="background:var(--teal);width:180px"></i>6</div>
+          <div class="row"><span>✖ 2/4 rima</span><i id="b3" style="background:var(--teal);width:60px"></i>2</div>
+          <div class="row"><span>✖ 3 baris</span><i id="b4" style="background:var(--teal);width:30px"></i>1</div>
+        </div>
+        <div class="chart" style="left:450px"><h4>Makna</h4>
+          <div class="row"><span>● Tidak pasti</span><i id="b5" style="background:var(--gold);width:270px"></i>10</div>
+          <div class="row"><span>▲ Condong sepadan</span><i id="b6" style="background:var(--gold);width:55px"></i>2</div>
+          <div class="row"><span>▼ Tidak sepadan</span><i id="b7" style="background:var(--gold);width:28px"></i>1</div>
+        </div>
+        <div style="position:absolute;left:0;top:390px;font-weight:700;font-size:15px">Muat turun keputusan kelas</div>
+        <div class="exp" style="left:0;top:420px"><div class="b">⬇ Eksport CSV</div><div class="b" id="bPdf">📄 Eksport PDF</div></div>
+        <div class="toast" id="toast">📄 keputusan_kelas.pdf dimuat turun</div>
+      </div>
+
+      <!-- Semakan -->
+      <div class="panel rq" id="pReq">
+        <h2>Permintaan semakan daripada pelajar</h2>
+        <table style="top:70px">
+          <tr><th>Masa</th><th>Pelajar</th><th>Baris 1</th><th>Komen</th><th>Bunyi</th><th>Makna</th></tr>
+          <tr><td>10:41</td><td>Aina</td><td>Pisang emas dibawa belayar,</td><td>Saya rasa pembayang sepadan</td><td>10</td><td>57%</td></tr>
+          <tr><td>10:44</td><td>Haziq</td><td>Burung serindit terbang melayang,</td><td>Kenapa makna rendah?</td><td>10</td><td>49%</td></tr>
+        </table>
+        <h4 style="top:200px">Log keputusan pensyarah</h4>
+        <table style="top:236px">
+          <tr><th>Masa</th><th>Kelas</th><th>Pelajar</th><th>Keputusan</th><th>Catatan</th></tr>
+          <tr><td>10:46</td><td>BM2</td><td>S004</td><td>✔ Setuju</td><td>Bagus, cuba kuatkan pembayang.</td></tr>
+          <tr><td>10:47</td><td>BM2</td><td>S013</td><td>⚑ Dihantar kepada pakar</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="file" id="file"><b>CSV</b>kelas_BM2.csv</div>
+
+  <div class="titlecard" id="intro">
+    <div class="songket" style="top:0"></div>
+    <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
+    <h1>Cara guna: Pensyarah</h1>
+    <p>Semak pantun seluruh kelas dari satu halaman</p>
+    <div class="chips" style="position:static"><span>📤 Muat naik</span><span>🗂️ Senarai kerja</span><span>✔ Keputusan</span><span>📄 Eksport</span></div>
+    <div class="songket" style="bottom:0"></div>
+  </div>
+  <div class="titlecard" id="outro">
+    <div class="songket" style="top:0"></div>
+    <h1>Anda membuat keputusan akhir ✔</h1>
+    <p>Sistem menyemak dengan pantas — pensyarah memutuskan.</p>
+    <div class="brand" style="margin-top:12px"><span class="dot"></span>Cenderawasih Sdn. Bhd.</div>
+    <div class="songket" style="bottom:0"></div>
+  </div>
+
+  <div id="spot"></div>
+  <div id="click"></div>
+  <div id="cursor"><svg viewBox="0 0 24 24"><path d="M4 2l15 8.5-6.6 1.6L16 20l-3 1.4-3.6-8-5.4 4.6z" fill="#fff" stroke="#1F2A2E" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  <div id="caption"><span></span></div>
+  <div id="progress"><i></i></div>
+</div>
+
+<script src="stage.js"></script>
+<script>
+const D = 59;
+const lin = "linear";
+const frac = (a, b) => (t) => (t - a) / (b - a);
+
+// Intro / outro
+at("#intro .brand", 0.2, 0.6, [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }]);
+pop("#intro h1", 0.5, 0.7); show("#intro p", 1.0);
+document.querySelectorAll("#intro .chips span").forEach((s, i) => pop(s, 1.4 + i * 0.18));
+at("#intro", 3.6, 0.6, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(1.06)" }], "ease-in");
+at(".window", 3.6, 0.8, [{ opacity: 0, transform: "translateY(30px) scale(.97)" }, { opacity: 1, transform: "none" }]);
+at("#outro", 54.4, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
+pop("#outro h1", 54.8, 0.7); show("#outro p", 55.3);
+
+// Panels: Kelas saya (to 41.9) -> Laporan (41.9-50.4) -> Semakan (50.4-)
+at("#pClass", 41.9, 0.4, [{ opacity: 1 }, { opacity: 0 }], "ease");
+{ const f = frac(41.9, 50.8);
+  at("#pReport", 41.9, 8.9, [{ opacity: 0 }, { opacity: 1, offset: f(42.3) }, { opacity: 1, offset: f(50.4) }, { opacity: 0 }], lin); }
+at("#pReq", 50.4, 0.4, [{ opacity: 0 }, { opacity: 1 }], "ease");
+classBetween("#m1", "on", 0, 41.9); classBetween("#m3", "on", 41.9, 50.4); classBetween("#m2", "on", 50.4);
+
+// 1: drag the CSV in, progress bar
+{ const f = frac(4.8, 7.2);
+  at("#file", 4.8, 2.4, [{ opacity: 0, transform: "translate(0,0) scale(.9)" }, { opacity: 1, transform: "translate(0,0) scale(1)", offset: f(5.2) },
+    { opacity: 1, transform: "translate(0,0)", offset: f(5.5) }, { opacity: 1, transform: "translate(-560px,-136px) rotate(-4deg)", offset: f(6.8) },
+    { opacity: 0, transform: "translate(-560px,-136px) scale(.6)" }], lin); }
+classBetween("#drop", "hot", 6.0, 7.1);
+{ const f = frac(7.0, 9.8);
+  at("#bar", 7.0, 2.8, [{ opacity: 0 }, { opacity: 1, offset: f(7.2) }, { opacity: 1, offset: f(9.5) }, { opacity: 0 }], lin); }
+at("#bari", 7.2, 2.2, [{ width: "0%" }, { width: "100%" }], "ease-in-out");
+countUp("#barn", 14, 7.2, 2.2);
+T.handlers.push((t) => { document.querySelector("#drop").innerHTML = t < 9.6 ? "⬆ Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b>" : "✔ kelas_BM2.csv · 14 pantun disemak"; });
+T.handlers.push((t) => { document.querySelector("#meta").textContent = t < 9.7 ? "Belum ada hantaran" : "14 hantaran · dikemas kini 10:42"; });
+
+// 2: cards and table
+show("#cards", 9.8); show("#chips", 10.1);
+countUp("#n1", 14, 10.0, 1.0); countUp("#n2", 9, 10.1, 1.0);
+T.handlers.push((t) => { document.querySelector("#n3").textContent = t < 39.3 ? "0" : "1"; });
+T.handlers.push((t) => { document.querySelector("#n4").textContent = t < 34.2 ? "—" : "0.6 min"; });
+T.handlers.push((t) => { document.querySelector("#nrev").textContent = t < 34.2 ? "14" : t < 39.3 ? "13" : "12"; });
+show("#tbl", 10.2);
+for (let i = 1; i <= 6; i++) show(`#r${i}`, 10.4 + i * 0.12, 0.4, 8);
+
+// 3: select a row, review panel
+classBetween("#r3", "sel", 20.9, 36.9); classBetween("#r5", "sel", 37.5);
+at("#rvEmpty", 20.9, 0.3, [{ opacity: 1 }, { opacity: 0 }], "ease");
+{ const f = frac(20.9, 37.8);
+  at("#rvA", 20.9, 16.9, [{ opacity: 0, transform: "translateX(18px)" }, { opacity: 1, transform: "none", offset: f(21.4) },
+    { opacity: 1, transform: "none", offset: f(37.4) }, { opacity: 0, transform: "none" }], lin); }
+at("#rvB", 37.5, 0.5, [{ opacity: 0, transform: "translateX(18px)" }, { opacity: 1, transform: "none" }]);
+T.handlers.push((t) => { document.querySelector("#rvh").textContent = t < 20.9 ? "Semak" : t < 37.5 ? "Semak: S004" : "Semak: S013"; });
+typeText("#noteA", "Bagus, cuba kuatkan pembayang.", 26.6, 18);
+classBetween("#phA", "hidden-ph", 26.6);
+T.handlers.push((t) => { document.querySelector("#phA").style.display = t < 26.6 ? "" : "none"; });
+
+// 4: decisions
+classBetween("#bAgree", "press", 34.0, 34.25);
+T.handlers.push((t) => { const c = document.querySelector("#dec3"); c.textContent = t < 34.1 ? "—" : "✔ Setuju"; c.className = t < 34.1 ? "" : "ok"; });
+classBetween("#bExpert", "press", 39.2, 39.45);
+T.handlers.push((t) => { const c = document.querySelector("#dec5"); c.textContent = t < 39.3 ? "—" : "⚑ Kepada pakar"; c.className = t < 39.3 ? "" : "lean"; });
+
+// 5: report bars, PDF export
+["#b1", "#b2", "#b3", "#b4", "#b5", "#b6", "#b7"].forEach((b, i) =>
+  at(b, 42.4 + i * 0.1, 0.9, [{ transform: "scaleX(0)", transformOrigin: "left" }, { transform: "scaleX(1)", transformOrigin: "left" }]));
+classBetween("#bPdf", "press", 46.4, 46.65);
+{ const f = frac(46.6, 50.2);
+  at("#toast", 46.6, 3.6, [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "none", offset: f(47.0) },
+    { opacity: 1, transform: "none", offset: f(49.8) }, { opacity: 0, transform: "none" }], lin); }
+
+steps([
+  [4.0, 12.0, "1", "Muat naik kelas"],
+  [12.0, 20.4, "2", "Senarai kerja"],
+  [20.4, 30.0, "3", "Pilih & semak"],
+  [30.0, 41.4, "4", "Buat keputusan"],
+  [41.4, 50.2, "5", "Laporan & eksport"],
+  [50.2, 54.4, "6", "Permintaan pelajar"],
+]);
+
+cursor([
+  [4.4, [900, 420]],
+  [5.4, [1060, 335]],
+  [5.6, [1060, 335], true],
+  [6.9, [500, 200]],
+  [8.0, [520, 260]],
+  [20.2, [520, 470]],
+  [20.8, "#r3", true],
+  [23.0, [1020, 360]],
+  [26.0, "#noteA"],
+  [26.2, "#noteA", true],
+  [33.2, "#bAgree"],
+  [34.0, "#bAgree", true],
+  [36.8, "#r5"],
+  [37.4, "#r5", true],
+  [38.6, "#bExpert"],
+  [39.2, "#bExpert", true],
+  [41.0, "#m3"],
+  [41.8, "#m3", true],
+  [45.8, "#bPdf"],
+  [46.4, "#bPdf", true],
+  [49.8, "#m2"],
+  [50.3, "#m2", true],
+  [53.8, [700, 420]],
+]);
+
+spotlight([
+  [4.4, 8.0, "#drop"],
+  [12.2, 16.0, "#cards"], [16.0, 20.0, "#ch1"],
+  [21.8, 25.9, "#rvA .pc, #rvA .facts"], [25.9, 29.8, "#rvA .note"],
+  [30.2, 33.4, "#rvA .dbtn"],
+  [42.6, 45.6, "#pReport .chart"],
+  [50.8, 54.2, "#pReq table"],
+]);
+
+captions([
+  [4.4, 8.0, "Seret fail <b>CSV kelas</b> (ID pelajar, baris 1–4) ke sini."],
+  [8.0, 11.8, "Sistem menyemak setiap pantun secara automatik."],
+  [12.2, 16.0, "Ringkasan kelas: disemak, gagal bentuk, dihantar kepada pakar."],
+  [16.0, 20.2, "<b>Perlu semakan</b>: kes yang belum diputuskan ditunjuk dahulu."],
+  [20.4, 25.9, "Pilih satu baris. Panel semakan tunjuk <b>bentuk, rima dan makna</b>."],
+  [25.9, 29.8, "Tulis <b>catatan</b> untuk pelajar (pilihan)."],
+  [30.2, 33.4, "Tiga pilihan: <b>Setuju</b>, <b>Ubah</b> atau <b>Hantar kepada pakar</b>."],
+  [33.6, 37.0, "Setiap keputusan <b>disimpan</b> bersama masa — untuk ukur MOV."],
+  [37.2, 41.2, "Kes sukar? <b>Hantar kepada pakar</b> untuk semakan lanjut."],
+  [42.4, 45.8, "<b>Laporan</b>: ringkasan bentuk dan makna seluruh kelas."],
+  [45.8, 50.0, "Eksport keputusan sebagai <b>CSV</b> atau <b>PDF</b>."],
+  [50.6, 54.2, "<b>Semakan</b>: permintaan “Saya tidak setuju” dan log keputusan."],
+]);
+
+start(D);
+</script>
+</body>
+</html>

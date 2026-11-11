@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, pantun_card,
-                          read_log, rhyme_text, save_decision)
+from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
+                          pantun_card, read_log, rhyme_text, save_decision, tour)
 from src.data_loader import load_pantun
 
 ACTIONS = {"setuju": "✔ Setuju", "ubah": "✎ Diubah", "pakar": "⚑ Dihantar kepada pakar"}
@@ -180,6 +180,8 @@ with st.sidebar:
     st.caption("Sistem membantu; pensyarah membuat keputusan akhir.")
 
 rows, dec = st.session_state["p_class"], st.session_state["p_decisions"]
+with st.container(horizontal=True, horizontal_alignment="right"):
+    help_button("pensyarah")
 
 
 # ---- Kelas saya: upload, summary, work queue, review panel ---------------------------------------
@@ -191,7 +193,7 @@ def class_page():
     if rows:
         st.caption(f"{len(rows)} hantaran · dikemas kini {rows[0]['loaded']:%H:%M}")
 
-    with st.container(border=True):
+    with st.container(border=True, key="p_upload"):
         up = st.file_uploader("Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau pilih fail", type="csv")
         with st.container(horizontal=True):
             st.download_button("Muat turun templat CSV", TEMPLATE.encode("utf-8"), file_name="templat_kelas.csv",
@@ -215,7 +217,7 @@ def class_page():
     summary_cards(rows, dec)
 
     queue, panel = st.columns([3, 2], gap="large")
-    with queue:
+    with queue.container(key="p_queue"):
         n_review = sum(needs_review(r) for r in rows)
         filt = st.segmented_control(
             "Tapis", [f"Perlu semakan ({n_review})", "Semua", "Gagal bentuk", "Makna: tidak pasti"],
@@ -235,7 +237,7 @@ def class_page():
                              key="p_table", alt="Senarai kerja: pantun pelajar dan status semakan")
         st.caption("Pilih satu baris untuk menyemaknya. Status sentiasa ditunjuk dengan ikon dan perkataan.")
 
-    with panel:
+    with panel.container(key="p_panel"):
         sel = event.selection.rows if event and event.selection else []
         if not sel or not shown:
             st.info("Pilih pantun dalam senarai untuk menyemak.", icon=":material/touch_app:")
@@ -328,3 +330,15 @@ def report_page():
 
 
 {MENU[0]: class_page, MENU[1]: review_page, MENU[2]: report_page}[section]()
+
+tour("pensyarah", [
+    ("section[data-testid='stSidebar']", "Menu pensyarah 📚",
+     "<b>Kelas saya</b> untuk menyemak kelas, <b>Semakan</b> untuk permintaan pelajar, <b>Laporan</b> untuk ringkasan."),
+    (".st-key-p_upload", "Muat naik kelas 📤",
+     "Seret fail CSV (ID pelajar, baris 1–4). Muat turun templat, atau cuba <b>kelas contoh</b>."),
+    (".st-key-p_queue", "Senarai kerja 🗂️",
+     "<b>Perlu semakan</b> menunjukkan kes yang belum diputuskan dahulu. Pilih satu baris untuk menyemak."),
+    (".st-key-p_panel", "Buat keputusan ✔",
+     "<b>Setuju</b>, <b>ubah keputusan</b> atau <b>hantar kepada pakar</b>. Setiap keputusan direkod."),
+    (".st-key-help_pensyarah", "Video tutorial ▶️", "Tekan <b>Cara guna</b> untuk video tutorial bila-bila masa."),
+])
