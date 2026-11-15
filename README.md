@@ -33,6 +33,18 @@ What to expect:
 - Needs `data/pantun.csv` and `results/` (made by the steps below). Uses about 9.5 GB RAM.
 - If the folder is moved to another drive, `.venv` stops working. Delete `.venv` and run Setup again.
 
+## Sharing online for a while (pantun.aimanjamal.com)
+The app can be opened from anywhere through a Cloudflare Tunnel, protected by a code:
+1. Start the demo (`Start Demo.bat`), then double-click **`Start Sharing.bat`**. Keep its window open;
+   close it to take the site offline.
+2. In the demo on this computer, open the **Kongsi** page (only shown here, never to visitors), choose how
+   long (30 min – 8 h) and press **Hidupkan perkongsian**.
+3. Give visitors the 6-digit code shown there. It changes every 15 seconds; the previous code is also accepted.
+
+While sharing is off (or after the time runs out) visitors only see "Perkongsian ditutup" and no code works.
+Switching sharing off locks out everyone who is already in (within 20 seconds). Code: `src/share.py`.
+Tunnel settings: `%USERPROFILE%\.cloudflared\pantun.yml` (keep the credentials file there secret).
+
 ## Setup (Windows, CPU only)
 ```
 py -3.11 -m venv .venv

@@ -17,6 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.app_core import fonts, start_warmup
+from src.share import gate, is_visitor, owner_page
 
 st.set_page_config(page_title="Semak Pantun · Cenderawasih", page_icon=":material/menu_book:",
                    layout="wide")
@@ -26,13 +27,13 @@ if logo.exists():
     st.logo(str(logo), size="large")
 fonts()          # Lora for pantun text, Nunito for the student view
 start_warmup()   # load the models in the background so results come within 7 seconds (SRNF02)
+gate()           # visitors from the public address must type the current share code (src/share.py)
 
-page = st.navigation(
-    [
-        st.Page("app_pages/pelajar.py", title="Pelajar", icon=":material/school:", default=True),
-        st.Page("app_pages/pensyarah.py", title="Pensyarah", icon=":material/co_present:"),
-        st.Page("app_pages/penyelidik.py", title="Penyelidik & Pakar", icon=":material/science:"),
-    ],
-    position="top",
-)
-page.run()
+pages = [
+    st.Page("app_pages/pelajar.py", title="Pelajar", icon=":material/school:", default=True),
+    st.Page("app_pages/pensyarah.py", title="Pensyarah", icon=":material/co_present:"),
+    st.Page("app_pages/penyelidik.py", title="Penyelidik & Pakar", icon=":material/science:"),
+]
+if not is_visitor():   # only on this computer: switch sharing on/off and see the code
+    pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
+st.navigation(pages, position="top").run()
