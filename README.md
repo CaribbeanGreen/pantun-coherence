@@ -42,7 +42,9 @@ The app can be opened from anywhere through a Cloudflare Tunnel, protected by a 
 3. Give visitors the 6-digit code shown there. It changes every 15 seconds; the previous code is also accepted.
 
 While sharing is off (or after the time runs out) visitors only see "Perkongsian ditutup" and no code works.
-Switching sharing off locks out everyone who is already in (within 20 seconds). Code: `src/share.py`.
+Switching sharing off locks out everyone who is already in (within 10 seconds). The Kongsi page lists every
+connected device (name, browser, IP, country) with buttons to remove it or block its IP. Full explanation and
+rebuild guide: `docs/sharing_guide.md`. Code: `src/share.py`.
 Tunnel settings: `%USERPROFILE%\.cloudflared\pantun.yml` (keep the credentials file there secret).
 
 ## Setup (Windows, CPU only)
