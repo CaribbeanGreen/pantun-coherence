@@ -333,6 +333,54 @@ Then delete the `pantun` CNAME record in the Cloudflare dashboard (DNS → Recor
 
 **Keep secret:** `cert.pem` and the tunnel `.json` file. Never commit them or send them to anyone.
 
+### 8.1 Keeping `cert.pem` off the PC (USB method)
+
+The two secret files are not equally powerful, and they are needed at different times:
+
+| File | What someone could do with it | When you need it |
+|---|---|---|
+| `cert.pem` | Create, change or delete tunnels **and DNS records** for your whole domain (e.g. point `aimanjamal.com` somewhere else) | Only to create, route, rename or delete a tunnel |
+| `<tunnel-id>.json` | Run *this one* tunnel (serve something at `pantun.aimanjamal.com`) | Every time you share |
+
+So once the tunnel exists, `cert.pem` can leave the PC, while `Start Sharing.bat` keeps working with only the
+`.json` file.
+
+**Where to keep it**
+
+| Location | Who can read it | Verdict |
+|---|---|---|
+| `C:\Users\Administrator\.cloudflared\` (default) | You, every program you run, any malware on the PC | Works, least safe |
+| Another drive on the same PC (e.g. `D:\`) | Exactly the same: one PC, one user, all drives readable | **No real gain** |
+| **USB drive, unplugged** | Nobody until you plug it in | **Recommended** |
+| Password-protected 7-Zip archive (AES-256) or a password manager | Only someone with the password | **Recommended** (keep a copy on USB too) |
+| Anything under `G:\My Drive` (Google Drive sync) | Uploaded to the cloud automatically | **Never** |
+| Inside a project folder (e.g. `D:\CODES\pantun-coherence`) | Could be committed to GitHub by mistake | **Never** |
+
+**Moving it**
+1. Plug in the USB drive (say it appears as `E:`).
+2. Move `C:\Users\Administrator\.cloudflared\cert.pem` to `E:\cloudflared\cert.pem` (cut and paste, so no copy
+   is left on the PC; also empty the Recycle Bin if it went there).
+3. Unplug the USB and store it somewhere safe.
+4. Test: run `Start Sharing.bat`. It should still connect, because running only needs the `.json` file.
+
+**When you need it again** (to create, route or delete a tunnel), plug in the USB and point `cloudflared` at it
+with `--origincert`, without copying it back:
+```bash
+cloudflared tunnel --origincert E:\cloudflared\cert.pem delete pantun
+```
+```bash
+cloudflared tunnel --origincert E:\cloudflared\cert.pem route dns pantun pantun.aimanjamal.com
+```
+
+**If the USB is lost, or you think `cert.pem` leaked:** it can't be "reset" by deleting your copy. In the
+Cloudflare dashboard go to **My Profile → API Tokens** and delete the token named after the tunnel login (it is
+created by `cloudflared tunnel login`). Then run `cloudflared tunnel login` again to get a fresh `cert.pem`.
+Also check **DNS → Records** for any record you don't recognise.
+
+**If the `.json` file leaks:** someone could run your tunnel and serve their own page at
+`pantun.aimanjamal.com`. Delete the tunnel (`cloudflared tunnel --origincert … delete pantun`) and create a new
+one; the old credentials stop working at once.
+
 ### 8.1 Keeping `cert.pem` off the PC (the USB method)
 
 The two secret files have very different power:
