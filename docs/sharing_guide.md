@@ -333,6 +333,46 @@ Then delete the `pantun` CNAME record in the Cloudflare dashboard (DNS → Recor
 
 **Keep secret:** `cert.pem` and the tunnel `.json` file. Never commit them or send them to anyone.
 
+### 8.1 Keeping `cert.pem` off the PC (the USB method)
+
+The two secret files have very different power:
+
+| File | What someone could do with it | Needed for |
+|---|---|---|
+| `cert.pem` | Create, change and delete tunnels **and DNS records for your whole domain** (e.g. point `aimanjamal.com` somewhere else) | Only setup jobs: `tunnel create`, `route dns`, `delete` |
+| `<tunnel-id>.json` | Run *this one* tunnel (pretend to be your PC for `pantun.aimanjamal.com`) | Every time you share (`tunnel run`) |
+
+So once the tunnel exists, `cert.pem` is no longer needed day to day, and the safest place for it is **off the PC**.
+
+**Where to keep it**
+
+| Location | Safer than leaving it in `C:\Users\…\.cloudflared`? |
+|---|---|
+| Another drive on the same PC (e.g. `D:\`) | **No.** Same user, same programs, same malware can read every drive. It only tidies the OS drive. |
+| A USB drive that is unplugged | **Yes.** Nothing can read it while it isn't connected. |
+| A password-protected 7-Zip archive, or a password manager's file attachment | **Yes.** Unreadable without your password. |
+| Anything under `G:\My Drive` (Google Drive) | **Never.** It would be uploaded to the cloud. |
+| Inside the project folder (`D:\CODES\pantun-coherence`) | **Never.** It could be committed to GitHub by mistake. |
+
+**Steps**
+1. Copy `C:\Users\Administrator\.cloudflared\cert.pem` to the USB drive (or into a password-protected 7-Zip archive).
+2. Check that the copy opens, then **delete** the original from `.cloudflared`.
+3. Unplug the USB drive and keep it somewhere safe.
+4. Test: run `Start Sharing.bat`. It still works, because running only needs `pantun.yml` and the `.json` file.
+
+**When you need it again** (to change or delete the tunnel), plug the USB in and point `cloudflared` at it,
+instead of copying it back:
+```bash
+cloudflared tunnel --origincert E:\cert.pem delete pantun
+```
+(`E:` is the USB drive's letter; check it in File Explorer.) If you lose the USB drive, nothing breaks:
+run `cloudflared tunnel login` again to get a fresh certificate.
+
+**The `.json` file** has to stay on the PC for sharing to work. If you would rather keep it off the OS drive,
+move it (e.g. to `D:\Secrets\cloudflared\`) and update two places: the `credentials-file:` line in `pantun.yml`,
+and the `--config` path in `Start Sharing.bat` if you move `pantun.yml` too. If the `.json` file ever leaks,
+delete the tunnel and create a new one (that makes the old file useless).
+
 ---
 
 ## Part 9 · Recreate it yourself from zero
