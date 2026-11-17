@@ -131,6 +131,10 @@ CREATE TABLE IF NOT EXISTS class_members (
     joined   REAL NOT NULL,
     PRIMARY KEY (code, username)
 );
+CREATE TABLE IF NOT EXISTS retired_usernames (  -- deleted accounts: the name is never given out again, so
+    username TEXT PRIMARY KEY,                   -- nobody inherits someone else's classes or inquiries
+    time     REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS inquiries (        -- "Saya tidak setuju" requests
     id          INTEGER PRIMARY KEY,
     time        REAL NOT NULL,
@@ -398,6 +402,10 @@ def _check_username(username):
     username = str(username).strip().lower()
     if not USERNAME_RE.match(username):
         raise ValueError("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.")
+    with closing(_db()) as con:
+        if con.execute("SELECT 1 FROM retired_usernames WHERE username=?", (username,)).fetchone():
+            raise ValueError(f"Nama pengguna '{username}' pernah digunakan oleh akaun yang telah dipadam dan tidak "
+                             "boleh digunakan semula. Pilih yang lain.")
     return username
 
 
@@ -437,6 +445,23 @@ def sign_up(name, username, password, password2, role, class_code, ip):
     cls = get_class(class_code) if role == "pelajar" else None
     if role == "pelajar" and (not cls or not cls["active"]):
         raise ValueError("Kod kelas tidak sah. Minta kod daripada pensyarah anda.")
+    if cls and not cls["teacher_ok"]:
+        raise ValueError(TEACHER_GONE)
+    name = " ".join(name.split())
+    with closing(_db()) as con:
+        if con.execute("SELECT 1 FROM members WHERE username=?", (username,)).fetchone():
+            raise ValueError(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.")
+        if cls:   # two students with the same name in one class: the teacher could not tell them apart
+            same = con.execute("SELECT 1 FROM class_members c JOIN members m ON m.username = c.username "
+                               "WHERE c.code=? AND lower(m.name)=?", (cls["code"], name.lower())).fetchone()
+            where = "dalam kelas ini"
+        else:
+            same = con.execute("SELECT 1 FROM members WHERE role='pensyarah' AND status!='dibatalkan' "
+                               "AND lower(name)=?", (name.lower(),)).fetchone()
+            where = "sebagai pensyarah"
+    if same:
+        raise ValueError(f"Nama '{name}' sudah berdaftar {where}. Jika itu akaun anda, log masuk sahaja. "
+                         "Jika bukan, tulis nama penuh anda (cth. tambah nama bapa) supaya mudah dibezakan.")
     now = time.time()
     with _lock:
         _signups[:] = [(t, a) for t, a in _signups if now - t < SIGNUP_WINDOW]
@@ -490,10 +515,11 @@ def set_member_role(username, role, lecturer=""):
 
 
 def lecturers():
-    """{username: name} of active lecturer members."""
+    """{username: name} of lecturers who can look after a class now (approved and not expired)."""
     with closing(_db()) as con:
         return {r["username"]: r["name"] for r in
-                con.execute("SELECT username, name FROM members WHERE role='pensyarah' AND status='aktif' ORDER BY name")}
+                con.execute("SELECT username, name FROM members WHERE role='pensyarah' AND status='aktif' "
+                            "AND expires > ? ORDER BY name", (time.time(),))}
 
 
 # ---- Classes (teachers make them; students join with the code) ------------------------------------
@@ -519,11 +545,25 @@ def create_class(teacher, name):
     raise ValueError("Tidak dapat membuat kod kelas. Cuba lagi.")
 
 
+def teacher_active(teacher):
+    """Is this class teacher able to look after the class? ('' = the owner, always.) An expired, revoked,
+    deleted or no-longer-lecturer account is not: its classes stop taking new students and the owner sees
+    their inquiries until the account is extended or the class is moved."""
+    if not teacher:
+        return True
+    m = get_member(teacher)
+    return bool(m) and m["status"] == "aktif" and m.get("role") == "pensyarah" and time.time() < m["expires"]
+
+
+TEACHER_GONE = ("Pensyarah kelas ini tidak aktif buat masa ini, jadi kelas tidak menerima pelajar baharu. "
+                "Minta kod kelas lain daripada pensyarah anda.")
+
+
 def get_class(code):
     code = re.sub(r"[^A-Z0-9]", "", str(code).upper())
     with closing(_db()) as con:
         r = con.execute("SELECT * FROM classes WHERE code=?", (code,)).fetchone()
-    return dict(r) if r else None
+    return {**dict(r), "teacher_ok": teacher_active(r["teacher"])} if r else None
 
 
 def classes_of(teacher=None):
@@ -532,7 +572,8 @@ def classes_of(teacher=None):
          "LEFT JOIN class_members cm ON cm.code = c.code LEFT JOIN members m ON m.username = c.teacher "
          + ("WHERE c.teacher = ? " if teacher is not None else "") + "GROUP BY c.code ORDER BY c.created DESC")
     with closing(_db()) as con:
-        return [dict(r) for r in con.execute(q, (teacher,) if teacher is not None else ())]
+        rows = [dict(r) for r in con.execute(q, (teacher,) if teacher is not None else ())]
+    return [{**r, "teacher_ok": teacher_active(r["teacher"])} for r in rows]
 
 
 def set_class_active(code, active):
@@ -557,10 +598,30 @@ def student_classes(username):
             "ORDER BY cm.joined", (username,))]
 
 
+def student_classes_ok(username):
+    """student_classes with 'teacher_ok' (is someone looking after each class right now)."""
+    return [{**c, "teacher_ok": teacher_active(c["teacher"])} for c in student_classes(username)]
+
+
+def transfer_class(code, new_teacher):
+    """Owner moves a class (its students and all its inquiries, which follow the class code) to another lecturer."""
+    cls = get_class(code)
+    if not cls:
+        raise ValueError("Kelas tidak dijumpai.")
+    if new_teacher and new_teacher not in lecturers():
+        raise ValueError("Pilih pensyarah yang aktif.")
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE classes SET teacher=? WHERE code=?", (new_teacher, cls["code"]))
+    _log("kelas: dipindah", new_teacher or "pemilik", note=f"{cls['name']} ({cls['code']}) daripada "
+                                                           f"{cls['teacher'] or 'pemilik'}")
+
+
 def join_class(username, code):
     cls = get_class(code)
     if not cls or not cls["active"]:
         raise ValueError("Kod kelas tidak sah atau kelas sudah ditutup.")
+    if not cls["teacher_ok"]:
+        raise ValueError(TEACHER_GONE)
     with _lock, closing(_db()) as con, con:
         con.execute("INSERT OR IGNORE INTO class_members(code, username, joined) VALUES (?,?,?)",
                     (cls["code"], username, time.time()))
@@ -751,9 +812,12 @@ def sign_out_member(username):
 
 
 def delete_member(username):
+    """Delete an account. Its username is retired for good; a lecturer's classes stay (closed to new students
+    until the owner moves them to another lecturer with transfer_class)."""
     with _lock, closing(_db()) as con, con:
         con.execute("DELETE FROM members WHERE username=?", (username,))
-    _log("ahli: dipadam", username, note="sejarah log masuk disimpan")
+        con.execute("INSERT OR IGNORE INTO retired_usernames(username, time) VALUES (?,?)", (username, time.time()))
+    _log("ahli: dipadam", username, note="sejarah log masuk disimpan; nama pengguna tidak boleh diguna semula")
 
 
 def _record_login(username, me, how):
@@ -1167,7 +1231,9 @@ def owner_page():
         log_panel()
 
 
-DURATIONS = {"1 hari": 1, "3 hari": 3, "1 minggu": 7, "2 minggu": 14, "1 bulan": 30}
+DURATIONS = {"1 hari": 1, "3 hari": 3, "1 minggu": 7, "2 minggu": 14, "1 bulan": 30, "3 bulan": 91,
+             "6 bulan": 182, "1 tahun": 365}
+WARN_DAYS = 3                                   # lecturer accounts ending within this many days are flagged
 
 
 def _when(t):
@@ -1215,6 +1281,8 @@ def members_panel():
             st.caption("Luluskan hanya orang yang anda kenal sebagai pensyarah: mereka boleh melihat pertanyaan "
                        "pelajar kelas mereka dan pertanyaan tetamu.")
 
+    lecturer_warnings()
+
     shown = st.session_state.get("owner_new_key")
     if shown:
         with st.container(border=True):
@@ -1238,7 +1306,9 @@ def members_panel():
                                 help="Penyelidik / Pakar: Penyelidik + Pelajar. "
                                      "Pensyarah: Pensyarah + mod pakar + Pelajar.")
             c3, c4 = st.columns(2)
-            dur = c3.selectbox("Sah selama", list(DURATIONS), index=2)
+            dur = c3.selectbox("Sah selama", list(DURATIONS), index=2,
+                               help="Untuk pensyarah, pilih tempoh satu semester atau lebih (cth. 6 bulan) supaya "
+                                    "kelas mereka tidak tertinggal tanpa pensyarah.")
             note = c4.text_input("Catatan (pilihan)", placeholder="cth. penyelia CSC575")
             if st.form_submit_button("Cipta akaun dan kunci", type="primary", icon=":material/person_add:"):
                 try:
@@ -1249,7 +1319,77 @@ def members_panel():
                 except ValueError as e:
                     st.error(str(e), icon=":material/error:")
 
+    classes_panel()
     members_list()
+
+
+def lecturer_warnings():
+    """Lecturers whose account ends soon or has ended while they still have classes."""
+    now, soon = time.time(), time.time() + WARN_DAYS * 86400
+    teachers = {c["teacher"] for c in classes_of() if c["teacher"]}
+    rows = [m for m in list_members() if m.get("role") == "pensyarah" and m["status"] == "aktif"
+            and m["expires"] < soon and (m["expires"] > now or m["username"] in teachers)]
+    if not rows:
+        return
+    with st.container(border=True):
+        st.markdown(f"**⚠️ Akaun pensyarah hampir / sudah luput ({len(rows)})**")
+        for m in rows:
+            u, gone = m["username"], m["expires"] <= now
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"**{m['name']}** · `{u}` · " + (f":red[luput {_when(m['expires'])}]" if gone else
+                            f":orange[luput {_when(m['expires'])} ({_left(m['expires'])})]"))
+                st.button("+1 bulan", key=f"w30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
+                st.button("+6 bulan", key=f"w182_{u}", on_click=extend_member, args=(u, 182), type="tertiary")
+                st.button("+1 tahun", key=f"w365_{u}", on_click=extend_member, args=(u, 365), type="tertiary")
+        st.caption("Selagi akaun luput, kelasnya tidak menerima pelajar baharu dan pertanyaan pelajarnya hanya "
+                   "dilihat oleh anda (Pensyarah → Semakan). Lanjutkan akaun, atau pindahkan kelas di **🏫 Kelas**.")
+
+
+def _left(t):
+    d = t - time.time()
+    return f"{int(d // 3600)} jam lagi" if d < 86400 else f"{int(d // 86400)} hari lagi"
+
+
+def _open_inquiries_by_class():
+    with closing(_db()) as con:
+        return {r[0]: r[1] for r in con.execute("SELECT class_code, COUNT(*) FROM inquiries WHERE kind='pelajar' "
+                                                "AND status='baru' AND class_code != '' GROUP BY class_code")}
+
+
+def _do_transfer(code):
+    try:
+        transfer_class(code, st.session_state[f"tr_{code}"])
+        st.session_state["owner_transfer_msg"] = ("ok", f"Kelas {code} dipindahkan.")
+    except ValueError as e:
+        st.session_state["owner_transfer_msg"] = ("err", str(e))
+
+
+def classes_panel():
+    """Every class, whether its lecturer is still active, and moving a class to another lecturer."""
+    classes = classes_of()
+    if not classes:
+        return
+    orphans = [c for c in classes if not c["teacher_ok"]]
+    title = f"🏫 Kelas ({len(classes)})" + (f" · ⚠️ {len(orphans)} tanpa pensyarah aktif" if orphans else "")
+    with st.expander(title, expanded=bool(orphans)):
+        msg = st.session_state.pop("owner_transfer_msg", None)
+        if msg:
+            (st.success if msg[0] == "ok" else st.error)(msg[1])
+        st.caption("Pindah kelas: pelajar dan semua pertanyaan kelas itu ikut berpindah kepada pensyarah baharu.")
+        open_q, teachers = _open_inquiries_by_class(), lecturers()
+        choices = {"": "Pemilik (saya)", **teachers}
+        for c in classes:
+            who = c["teacher_name"] or (c["teacher"] and f"{c['teacher']} (dipadam)") or "pemilik"
+            flag = "" if c["teacher_ok"] else " · :red-badge[pensyarah tidak aktif]"
+            n_open = open_q.get(c["code"], 0)
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"**{c['name']}** `{c['code']}` · {who}{flag}  \n:gray[{c['n_students']} pelajar"
+                            + (f" · {n_open} pertanyaan belum dijawab" if n_open else "") + "]")
+                with st.popover("Pindah", icon=":material/swap_horiz:", type="tertiary"):
+                    st.selectbox("Pindah kepada", list(choices), format_func=choices.get, key=f"tr_{c['code']}",
+                                 index=list(choices).index(c["teacher"]) if c["teacher"] in choices else 0)
+                    st.button("Pindahkan", key=f"trgo_{c['code']}", type="primary", on_click=_do_transfer,
+                              args=(c["code"],))
 
 
 @st.fragment(run_every=10)
@@ -1287,6 +1427,7 @@ def members_list():
             with st.container(horizontal=True):
                 st.button("+1 hari", key=f"x1_{u}", on_click=extend_member, args=(u, 1), type="tertiary")
                 st.button("+1 minggu", key=f"x7_{u}", on_click=extend_member, args=(u, 7), type="tertiary")
+                st.button("+1 bulan", key=f"x30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
                 st.button("Kunci baharu", key=f"rk_{u}", icon=":material/key:", type="tertiary",
                           on_click=_reset_and_show, args=(u,))
                 st.button("Log keluar peranti", key=f"so_{u}", icon=":material/logout:", type="tertiary",
@@ -1298,7 +1439,9 @@ def members_list():
                     st.button("Aktifkan semula", key=f"ra_{u}", icon=":material/check_circle:", type="tertiary",
                               on_click=set_member_status, args=(u, True))
                 st.button("Padam", key=f"del_{u}", icon=":material/delete:", type="tertiary",
-                          on_click=delete_member, args=(u,), help="Akaun dipadam; sejarah log masuk disimpan.")
+                          on_click=delete_member, args=(u,),
+                          help="Akaun dipadam; sejarah log masuk disimpan. Nama pengguna ini tidak boleh didaftar "
+                               "semula. Kelas pensyarah kekal: pindahkan di 🏫 Kelas.")
                 with st.popover("Tukar peranan", icon=":material/badge:", type="tertiary"):
                     new_role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get, key=f"role_{u}",
                                             index=list(ROLES).index(m.get("role") or "pelajar"))

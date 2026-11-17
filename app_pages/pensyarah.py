@@ -405,6 +405,7 @@ def codes_page():
             head, code_col = st.columns([3, 1], vertical_alignment="center")
             head.markdown(f"**{c['name']}** · {c['n_students']} pelajar"
                           + ("" if c["active"] else " · :red-badge[ditutup]")
+                          + ("" if c["teacher_ok"] else " · :red-badge[pensyarah tidak aktif]")
                           + (f"  \n:gray[Pensyarah: {c['teacher_name'] or 'pemilik'}]" if ME["kind"] == "owner" else ""))
             code_col.code(c["code"], language=None)
             st.session_state.setdefault(f"p_act_{c['code']}", bool(c["active"]))   # fixed key: no flip-flop

@@ -1,5 +1,7 @@
 # Measuring Pembayang–Maksud Coherence in Malay Pantun Using Transformer Embeddings
 
+> **Joining the project or picking it up later?** Start with [docs/FOLLOW_UP.md](docs/FOLLOW_UP.md): setup, where things are, git rules and the open follow-up list.
+
 CSC575 project (Group T-CDCS2306B1).
 
 > **Private data.** The pantun library in `data/raw/` (and everything derived from it:
@@ -43,6 +45,8 @@ The app can be opened from anywhere through a Cloudflare Tunnel:
   access ends.
 - **Access without an account** (Kongsi): 🔒 Tutup (accounts only), 🎟️ Kod sahaja (30-second guest code) or
   🌐 Terbuka (anyone can use the student page), for a time you choose.
+- **Lecturer accounts ending**: their classes stop taking new students and you see their inquiries;
+  Kongsi warns 3 days ahead and can move a class to another lecturer (**Pindah**).
 
 To go online: start `Start Demo.bat`, then double-click **`Start Sharing.bat`** (keep its window open; close it
 to go offline). Data stays on this computer in `results/share.db` (SQLite; keys stored only as scrypt hashes).

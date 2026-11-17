@@ -14,7 +14,7 @@ from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, bann
                           check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
                           save_flag, tour)
 from src import illus
-from src.share import add_inquiry, current_user, join_class, my_inquiries, sign_out, student_classes
+from src.share import add_inquiry, current_user, join_class, my_inquiries, sign_out, student_classes_ok
 
 KEYS = ["s_l1", "s_l2", "s_l3", "s_l4"]
 
@@ -153,11 +153,15 @@ def result_screen(res):
         with st.form("s_flag", border=False):
             class_code = ""
             if me["kind"] == "member":                 # signed-in student: goes to their class teacher
-                classes = student_classes(me["username"])
+                classes = student_classes_ok(me["username"])
                 if classes:
                     class_code = st.selectbox("Hantar kepada", [c["code"] for c in classes],
-                                              format_func=lambda k: next(f"{c['name']} · {c['teacher_name'] or 'pemilik'}"
-                                                                         for c in classes if c["code"] == k))
+                                              format_func=lambda k: next(
+                                                  f"{c['name']} · " + ((c["teacher_name"] or "pemilik") if c["teacher_ok"]
+                                                                       else "pemilik (pensyarah tidak aktif)")
+                                                  for c in classes if c["code"] == k))
+                    if not all(c["teacher_ok"] for c in classes):
+                        st.caption("Jika pensyarah kelas tidak aktif, pertanyaan anda dihantar kepada pemilik laman.")
                 else:
                     st.caption("Anda belum menyertai kelas: ia akan dihantar kepada pemilik laman. Sertai kelas di "
                                "tab **Sejarah Saya**.")
@@ -214,10 +218,11 @@ def account_panel():
         return
     with st.container(border=True):
         st.markdown("**🏫 Kelas saya**")
-        classes = student_classes(me["username"])
+        classes = student_classes_ok(me["username"])
         if classes:
             st.markdown("  \n".join(f"· **{c['name']}** ({c['code']}) · {c['teacher_name'] or 'pemilik'}"
-                                    for c in classes))
+                                    + ("" if c["teacher_ok"] else " · :orange[pensyarah tidak aktif: pertanyaan "
+                                                                  "dihantar kepada pemilik]") for c in classes))
         else:
             st.caption("Belum menyertai kelas.")
         with st.form("s_join", border=False, clear_on_submit=True):

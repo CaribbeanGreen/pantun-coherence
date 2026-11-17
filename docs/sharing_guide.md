@@ -481,6 +481,25 @@ Experts (and teachers in mode pakar) see in their **Expert queue** only the case
 Why delete guest inquiries? Guests have no account, so there is nobody to reply to after they leave, and
 keeping personal data only as long as needed is good practice (PDPA's data-retention principle).
 
+### 6B.4 When a lecturer's account ends (expired, cancelled or deleted)
+Nothing is deleted, but the class is now "without an active lecturer":
+
+| What | Happens |
+|---|---|
+| The class code | Stops accepting new students (sign-up and **Sertai kelas** both say the lecturer is inactive) |
+| Existing students | Carry on as normal; their class shows "pensyarah tidak aktif: pertanyaan dihantar kepada pemilik" |
+| Their inquiries | Only you (owner) see them, under Pensyarah → Semakan, until the class has a lecturer again |
+| Kongsi → Ahli | **⚠️ Akaun pensyarah hampir / sudah luput** lists lecturers ending within 3 days (or already ended but still owning classes), with **+1 bulan / +6 bulan / +1 tahun** |
+| Kongsi → Ahli → **🏫 Kelas** | Every class with its lecturer; **Pindah** moves a class (its students and all its inquiries) to another active lecturer or to you |
+
+Other rules that keep this safe:
+- Lecturer accounts you create can last **up to 1 tahun** (choose 6 bulan or more for a semester).
+- **Padam** retires the username for good: nobody can sign up or be created with it again, so a stranger can
+  never inherit an old lecturer's classes and inquiries (the `retired_usernames` table).
+- Two students with the **same full name in the same class** are refused at sign-up (the lecturer could not
+  tell them apart); the second one is asked to write their full name (e.g. add their father's name).
+  Usernames are always unique and not case-sensitive (`Aiman` = `aiman`).
+
 ---
 
 ## Part 6C · Access without an account (one setting: Tutup / Kod sahaja / Terbuka)
