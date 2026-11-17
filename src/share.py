@@ -8,15 +8,20 @@ How it works (full guide: docs/sharing_guide.md):
     the chosen time. Switching it off, or pressing "Keluarkan semua", starts a new round and locks everyone out.
   - The code changes every 15 seconds (TOTP, RFC 6238, HMAC-SHA1). With GRACE_STEPS = 1 the code from the
     previous 15 s is also accepted, so there is time to read it out. Set it to 0 to accept the current code only.
-  - Every visitor who gets in is listed on the Kongsi page (name, device, IP, country, last active). The owner
+  - After a correct code the browser keeps a signed pass (cookie) for REMEMBER_FOR (2 hours), so refreshing or
+    reopening the site does not ask again. The pass dies early if the round changes or the owner removes/blocks
+    the device, and an open page is locked when it expires.
+  - Every device that gets in is listed on the Kongsi page (name, device, IP, country, last active). The owner
     can remove one device, or remove it and block its IP address for the rest of the round.
   - Wrong codes are limited per IP address and overall; too many wrong codes pause the code screen.
 
-The secret and the on/off state live in results/share_state.json; the access log is results/share_log.csv.
-Both stay on this computer (results/ is in .gitignore). The device list lives in memory and is cleared
-when a new round starts or the app restarts.
+Files (all in results/, which is in .gitignore and stays on this computer):
+  share_state.json    secret + on/off + round      share_devices.json   devices and blocked IPs of this round
+  share_log.csv       access log
+PANTUN_SHARE_DIR=<folder> keeps them somewhere else (used for testing without touching a live share).
 """
 
+import base64
 import csv
 import hashlib
 import hmac
@@ -28,50 +33,55 @@ import struct
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from src.data_loader import PROJECT_ROOT
 
-STATE_FILE = PROJECT_ROOT / "results" / "share_state.json"
-LOG_FILE = PROJECT_ROOT / "results" / "share_log.csv"
+SHARE_DIR = Path(os.environ.get("PANTUN_SHARE_DIR") or PROJECT_ROOT / "results")
+STATE_FILE = SHARE_DIR / "share_state.json"
+DEVICES_FILE = SHARE_DIR / "share_devices.json"
+LOG_FILE = SHARE_DIR / "share_log.csv"
 PUBLIC_URL = "https://pantun.aimanjamal.com"
+COOKIE = "cz_pass"
 
 PERIOD = 15                 # seconds per code
 DIGITS = 6
 GRACE_STEPS = 1             # also accept the code from this many earlier periods (0 = current code only)
+REMEMBER_FOR = 2 * 3600     # a device stays signed in for 2 hours (never past the end of sharing)
 IP_FAILS, IP_WINDOW = 5, 600            # 5 wrong codes per IP address in 10 minutes
 ALL_FAILS, ALL_WINDOW = 30, 3600        # 30 wrong codes from everyone in 1 hour -> code screen paused
-HEARTBEAT = 10              # an open visitor page checks in every 10 s (and is locked if removed)
+HEARTBEAT = 10              # an open visitor page checks in every 10 s (and is locked if removed or expired)
 ONLINE_FOR = 3 * HEARTBEAT  # "online" if seen in the last 30 s
 
 _lock = threading.RLock()
-_reg = {"round": None, "devices": {}, "blocked": set(), "fails": []}   # in memory, one per server
+_reg = {"round": None, "devices": {}, "blocked": set(), "fails": []}   # in memory, saved to DEVICES_FILE
 
 
 # ---- On/off state (file) -------------------------------------------------------------------------
 
-def _read():
+def _read(path):
     try:
-        with open(STATE_FILE, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
 
 
-def _write(state):
-    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = STATE_FILE.with_suffix(".tmp")
+def _write(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    os.replace(tmp, STATE_FILE)        # atomic: never a half-written file
+        json.dump(data, f)
+    os.replace(tmp, path)              # atomic: never a half-written file
 
 
 def state():
     """Current sharing state. Creates the secret the first time. Turns sharing off when its time is up."""
     with _lock:
-        s = _read()
+        s = _read(STATE_FILE)
         changed = False
         if not s.get("secret"):
             s.update(secret=secrets.token_hex(20), enabled=False, until=0, round="")
@@ -81,29 +91,29 @@ def state():
             changed = True
             _log("tamat masa")
         if changed:
-            _write(s)
+            _write(STATE_FILE, s)
         return s
 
 
 def set_sharing(on, hours=1.0):
     """Switch sharing on for `hours`, or off. Each switch starts a new round, so old visitors are locked out."""
     with _lock:
-        s = _read()
+        s = state()
         if on:
             s.update(enabled=True, until=time.time() + hours * 3600, round=secrets.token_hex(8))
         else:
             s.update(enabled=False, until=0, round="")
-        _write(s)
+        _write(STATE_FILE, s)
     _log("perkongsian hidup" if on else "perkongsian mati", note=f"{hours:g} jam" if on else "")
 
 
 def kick_all():
     """New round with the same end time: every device must type a fresh code again."""
     with _lock:
-        s = _read()
+        s = state()
         if s.get("enabled"):
             s["round"] = secrets.token_hex(8)
-            _write(s)
+            _write(STATE_FILE, s)
     _log("keluarkan semua")
 
 
@@ -125,6 +135,49 @@ def verify(code):
     code = "".join(ch for ch in str(code) if ch.isdigit())
     now = time.time()
     return any(hmac.compare_digest(code, code_at(s["secret"], now - k * PERIOD)) for k in range(GRACE_STEPS + 1))
+
+
+# ---- Remembered pass (signed cookie) -------------------------------------------------------------
+
+def _pass_key(secret):
+    """Separate key for signing passes, derived from the code secret (so a pass can't be used as a code)."""
+    return hmac.new(bytes.fromhex(secret), b"cz-remember-pass", hashlib.sha256).digest()
+
+
+def make_pass(s, device_id, name, expires):
+    body = base64.urlsafe_b64encode(json.dumps({"r": s["round"], "d": device_id, "n": name, "e": int(expires)},
+                                               separators=(",", ":")).encode()).decode().rstrip("=")
+    sig = hmac.new(_pass_key(s["secret"]), body.encode(), hashlib.sha256).hexdigest()
+    return f"{body}.{sig}"
+
+
+def read_pass(s, token):
+    """The pass's contents if it is genuine, unexpired and for the current round; otherwise None."""
+    try:
+        body, sig = token.split(".", 1)
+        good = hmac.new(_pass_key(s["secret"]), body.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, good):
+            return None
+        data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
+    except (ValueError, AttributeError, TypeError):
+        return None
+    if data.get("r") != s["round"] or time.time() >= data.get("e", 0):
+        return None
+    return data
+
+
+def _set_cookie(token, max_age):
+    """Store the pass in this browser (JavaScript, because Streamlit can only read cookies)."""
+    value = json.dumps(token)
+    st.html(f"""<script>
+document.cookie = "{COOKIE}=" + {value} + "; Max-Age={int(max_age)}; Path=/; SameSite=Strict"
+                  + (location.protocol === "https:" ? "; Secure" : "");
+</script>""", unsafe_allow_javascript=True)
+
+
+def _clear_cookie():
+    st.html(f"""<script>document.cookie = "{COOKIE}=; Max-Age=0; Path=/; SameSite=Strict";</script>""",
+            unsafe_allow_javascript=True)
 
 
 # ---- Who is asking -------------------------------------------------------------------------------
@@ -165,11 +218,21 @@ def _client():
 # ---- Device register and access log --------------------------------------------------------------
 
 def _registry(round_id):
-    """The device list for this round (a new round starts with an empty list and no blocked IPs)."""
+    """The device list for this round. A new round starts empty; after an app restart it is read back from disk."""
     with _lock:
         if _reg["round"] != round_id:
-            _reg.update(round=round_id, devices={}, blocked=set(), fails=[])
+            saved = _read(DEVICES_FILE)
+            if saved.get("round") == round_id and round_id:
+                _reg.update(round=round_id, devices=saved.get("devices", {}), blocked=set(saved.get("blocked", [])),
+                            fails=[])
+            else:
+                _reg.update(round=round_id, devices={}, blocked=set(), fails=[])
         return _reg
+
+
+def _save_registry():
+    with _lock:
+        _write(DEVICES_FILE, {"round": _reg["round"], "devices": _reg["devices"], "blocked": sorted(_reg["blocked"])})
 
 
 def _log(event, name="", ip="", country="", device="", note=""):
@@ -191,22 +254,39 @@ def _fail_counts(reg, ip):
     return mine, everyone
 
 
-def remove_device(sid, block_ip=False):
-    """Owner action: lock one device out now (within HEARTBEAT seconds); optionally block its IP for this round."""
+def remove_device(device_id, block_ip=False):
+    """Owner action: lock one device out (open pages within HEARTBEAT seconds, and its pass stops working);
+    optionally block its IP address for the rest of this round."""
     with _lock:
-        dev = _reg["devices"].get(sid)
+        dev = _reg["devices"].get(device_id)
         if not dev:
             return
         dev["status"] = "disekat" if block_ip else "dikeluarkan"
         if block_ip:
             _reg["blocked"].add(dev["ip"])
+        _save_registry()
     _log("disekat" if block_ip else "dikeluarkan", dev["name"], dev["ip"], dev["country"], dev["device"])
 
 
 def unblock_ip(ip):
     with _lock:
         _reg["blocked"].discard(ip)
+        _save_registry()
     _log("buka sekatan", ip=ip)
+
+
+def _admit(reg, s, device_id, name, me, expires, event):
+    """Mark this session (browser tab) as signed in as `device_id` until `expires`."""
+    with _lock:
+        dev = reg["devices"].get(device_id)
+        if dev is None:
+            dev = reg["devices"][device_id] = {"id": device_id, "name": name, **me, "first": time.time(),
+                                               "status": "aktif", "visits": 0}
+        dev.update(ip=me["ip"], country=me["country"], device=me["device"], last=time.time(),
+                   until=expires, visits=dev.get("visits", 0) + 1)
+        _save_registry()
+    _log(event, dev["name"], me["ip"], me["country"], me["device"])
+    st.session_state.update(share_ok=s["round"], share_did=device_id, share_exp=expires)
 
 
 # ---- Visitor screens -----------------------------------------------------------------------------
@@ -229,33 +309,54 @@ def _screen(title, malay, english):
         <p style="font-size:.92rem;color:#6b7478">{english}</p></div>""")
 
 
+def _lock_out():
+    for k in ("share_ok", "share_did", "share_exp", "share_cookie"):
+        st.session_state.pop(k, None)
+
+
 def gate():
-    """Stop the page for visitors who have not typed a valid code in the current round, or were removed."""
+    """Stop the page for visitors who have no valid code or pass for the current round, or were removed."""
     if not is_visitor():
         return
     s = state()
     if not s["enabled"]:
-        st.session_state.pop("share_ok", None)
+        _lock_out()
         _screen("Perkongsian ditutup",
                 "Pemilik belum membuka akses ke Semak Pantun. Minta mereka hidupkan perkongsian dan berikan kod.",
                 "Sharing is closed. Ask the owner to switch it on and give you a code.")
         st.stop()
 
-    reg, sid, me = _registry(s["round"]), _session_id(), _client()
-    dev = reg["devices"].get(sid)
+    reg, me, now = _registry(s["round"]), _client(), time.time()
+
+    # Already signed in during this tab's session?
+    did = st.session_state.get("share_did")
+    if st.session_state.get("share_ok") != s["round"] or now >= st.session_state.get("share_exp", 0):
+        did = None
+        # A remembered pass from an earlier visit (refresh, new tab, browser reopened within 2 hours)?
+        p = read_pass(s, st.context.cookies.get(COOKIE, ""))
+        if p:
+            dev = reg["devices"].get(p["d"])
+            if (dev is None or dev["status"] == "aktif") and me["ip"] not in reg["blocked"]:
+                _admit(reg, s, p["d"], p["n"], me, p["e"], "masuk semula (diingati)")
+                did = p["d"]
+
+    dev = reg["devices"].get(did) if did else None
     if me["ip"] in reg["blocked"] or (dev and dev["status"] == "disekat"):
-        st.session_state.pop("share_ok", None)
+        _lock_out()
+        _clear_cookie()
         _screen("Akses disekat", "Pemilik telah menyekat peranti ini.", "The owner has blocked this device.")
         st.stop()
     if dev and dev["status"] == "dikeluarkan":
-        st.session_state.pop("share_ok", None)
-        # The record stays in the owner's list. Reloading the page starts a new session, which needs a new code
-        # (use "Sekat IP" to keep someone out completely).
+        _lock_out()
+        _clear_cookie()
         _screen("Akses ditarik balik", "Pemilik telah mengeluarkan peranti ini.",
                 "The owner removed this device from the site.")
         st.stop()
-    if st.session_state.get("share_ok") == s["round"] and dev:
-        dev["last"] = time.time()
+    if dev:
+        dev["last"] = now
+        token = st.session_state.pop("share_cookie", None)
+        if token:                                   # first run after a correct code: remember this browser
+            _set_cookie(token, st.session_state["share_exp"] - now)
         _watch()
         return
 
@@ -265,6 +366,8 @@ def gate():
         with st.form("share_form", border=False):
             name = st.text_input("Nama anda", max_chars=40, placeholder="Nama anda (supaya pemilik kenal)")
             code = st.text_input("Kod", max_chars=DIGITS, placeholder="••••••", label_visibility="collapsed")
+            remember = st.checkbox("Ingat peranti ini selama 2 jam", value=True,
+                                   help="Tidak perlu kod lagi jika anda muat semula halaman dalam masa 2 jam.")
             go = st.form_submit_button("Masuk", type="primary", icon=":material/lock_open:", width="stretch")
         if go:
             mine, everyone = _fail_counts(reg, me["ip"])
@@ -276,11 +379,11 @@ def gate():
                 st.error("Terlalu banyak kod salah dari rangkaian ini. Cuba lagi dalam 10 minit.",
                          icon=":material/timer:")
             elif verify(code):
-                with _lock:
-                    reg["devices"][sid] = {"sid": sid, "name": name, **me, "first": time.time(),
-                                           "last": time.time(), "status": "aktif"}
-                _log("masuk", name, me["ip"], me["country"], me["device"])
-                st.session_state["share_ok"] = s["round"]
+                expires = min(time.time() + REMEMBER_FOR, s["until"])
+                device_id = secrets.token_hex(6)
+                _admit(reg, s, device_id, name, me, expires, "masuk")
+                if remember:
+                    st.session_state["share_cookie"] = make_pass(s, device_id, name, expires)
                 st.rerun()
             else:
                 with _lock:
@@ -292,14 +395,14 @@ def gate():
 
 @st.fragment(run_every=HEARTBEAT)
 def _watch():
-    """Heartbeat from an open visitor page: marks it online, and locks it if the owner removed it,
-    switched sharing off, or started a new round."""
+    """Heartbeat from an open visitor page: marks it online, and locks it if the owner removed it, switched
+    sharing off, started a new round, or its 2 hours are up."""
     s = state()
     reg = _registry(s["round"]) if s["enabled"] else None
-    dev = reg["devices"].get(_session_id()) if reg else None
+    dev = reg["devices"].get(st.session_state.get("share_did")) if reg else None
     if (not s["enabled"] or st.session_state.get("share_ok") != s["round"] or not dev or dev["status"] != "aktif"
-            or dev["ip"] in reg["blocked"]):
-        st.session_state.pop("share_ok", None)
+            or dev["ip"] in reg["blocked"] or time.time() >= st.session_state.get("share_exp", 0)):
+        _lock_out()
         st.rerun()
     dev["last"] = time.time()
 
@@ -325,7 +428,7 @@ def owner_page():
                     kick_all()
                     st.rerun()
             st.caption("Mematikan perkongsian atau mengeluarkan semua akan mengunci pelawat dalam masa "
-                       f"{HEARTBEAT} saat.")
+                       f"{HEARTBEAT} saat. Peranti diingati selama {REMEMBER_FOR // 3600} jam selepas memasukkan kod.")
         else:
             st.info("Perkongsian **MATI**. Pelawat tidak boleh masuk dan tiada kod yang sah.", icon=":material/lock:")
             hours = st.segmented_control("Berapa lama?", [0.5, 1, 2, 4, 8], default=1, required=True,
@@ -372,7 +475,7 @@ def _ago(t):
 
 @st.fragment(run_every=5)
 def devices_panel():
-    """Exhibit-style device monitor: who is in, from where, and buttons to remove or block them."""
+    """Device monitor: who is in, from where, and buttons to remove or block them."""
     s = state()
     if not s["enabled"]:
         return
@@ -382,12 +485,12 @@ def devices_panel():
         devices = sorted(reg["devices"].values(), key=lambda d: -d["first"])
         blocked = sorted(reg["blocked"])
     _, everyone = _fail_counts(reg, None)
-    online = [d for d in devices if d["status"] == "aktif" and now - d["last"] < ONLINE_FOR]
+    online = [d for d in devices if d["status"] == "aktif" and now - d.get("last", 0) < ONLINE_FOR]
 
     st.subheader("Peranti yang disambung", anchor=False)
     with st.container(horizontal=True):
         st.metric("dalam talian sekarang", len(online), border=True)
-        st.metric("masuk pusingan ini", len(devices), border=True)
+        st.metric("peranti pusingan ini", len(devices), border=True)
         st.metric("kod salah (1 jam)", everyone, border=True,
                   help=f"Pada {ALL_FAILS}, skrin kod dijeda untuk semua. Mulakan semula perkongsian untuk set semula.")
         st.metric("IP disekat", len(blocked), border=True)
@@ -398,20 +501,23 @@ def devices_panel():
     if not devices:
         st.caption("Belum ada pelawat masuk dalam pusingan ini.")
     for d in devices:
-        is_online = d["status"] == "aktif" and now - d["last"] < ONLINE_FOR
+        is_online = d["status"] == "aktif" and now - d.get("last", 0) < ONLINE_FOR
         status = {"aktif": "🟢 Dalam talian" if is_online else "⚪ Tidak aktif",
                   "dikeluarkan": "⛔ Dikeluarkan", "disekat": "🚫 Disekat"}[d["status"]]
+        until = (f" · diingati hingga {datetime.fromtimestamp(d['until']):%H:%M}"
+                 if d["status"] == "aktif" and d.get("until") else "")
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
             st.markdown(f"**{d['name']}**  \n{d['device']} · `{d['ip']}` · {d['country']}  \n"
-                        f":gray[Masuk {datetime.fromtimestamp(d['first']):%H:%M} · aktif {_ago(d['last'])} · {status}]")
+                        f":gray[Masuk {datetime.fromtimestamp(d['first']):%H:%M} · aktif {_ago(d.get('last', d['first']))}"
+                        f" · {d.get('visits', 1)} lawatan{until} · {status}]")
             if d["status"] == "aktif":
-                st.button("Keluarkan", key=f"kick_{d['sid']}", icon=":material/logout:", width="content",
-                          on_click=remove_device, args=(d["sid"],))
-                st.button("Sekat IP", key=f"block_{d['sid']}", icon=":material/block:", width="content",
-                          on_click=remove_device, args=(d["sid"], True))
+                st.button("Keluarkan", key=f"kick_{d['id']}", icon=":material/logout:", width="content",
+                          on_click=remove_device, args=(d["id"],))
+                st.button("Sekat IP", key=f"block_{d['id']}", icon=":material/block:", width="content",
+                          on_click=remove_device, args=(d["id"], True))
     for ip in blocked:
         with st.container(horizontal=True, vertical_alignment="center"):
             st.markdown(f"🚫 `{ip}` disekat untuk pusingan ini")
             st.button("Buka sekatan", key=f"unblock_{ip}", type="tertiary", on_click=unblock_ip, args=(ip,))
     st.caption(f"Senarai dikemas kini setiap 5 saat. Peranti yang dikeluarkan dikunci dalam {HEARTBEAT} saat. "
-               "Setiap tab pelayar dikira sebagai satu peranti.")
+               "Satu peranti = satu pelayar; muat semula halaman tidak membuat peranti baharu.")

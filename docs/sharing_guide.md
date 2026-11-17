@@ -105,6 +105,8 @@ Every web request carries **headers** (name: value lines). Cloudflare adds its o
 | **Session** | Each browser tab is its own session with its own `st.session_state` | "Unlocked" is remembered per tab; each tab = one device |
 | **`st.stop()`** | Ends this run immediately; nothing below is drawn | The gate shows the code screen then stops |
 | **`st.context.headers`** | The request headers of this session | Detecting Cloudflare, reading IP/country/browser |
+| **`st.context.cookies`** | Cookies the browser sent when the session started (read-only) | Reading the 2-hour pass |
+| **`st.html(..., unsafe_allow_javascript=True)`** | Runs a small script in the page | Saving the pass cookie (Streamlit can't set cookies itself) |
 | **Fragment with `run_every`** | A small part of the page that re-runs on a timer | Heartbeat (10 s), live code (1 s), device list (5 s) |
 | **Module-level variables** | Python module state is shared by *all* sessions in one server | The device list (`_reg`) that the owner sees |
 | **Lock** (`threading.RLock`) | Sessions run in parallel threads; a lock stops two from editing the list at once | Every change to `_reg` and the files |
@@ -227,7 +229,7 @@ no. (A visitor *adding* fake headers only makes them look more like a visitor.)
 | IP blocked, or device blocked | Akses disekat |
 | Device removed | Akses ditarik balik |
 | Not yet unlocked | Name + code form |
-| Unlocked this round | The app (plus a hidden heartbeat) |
+| Unlocked this round, or has a valid 2-hour pass | The app (plus a hidden heartbeat) |
 
 ### 5.4 Heartbeat and instant lock-out
 An unlocked visitor page contains a tiny fragment (`_watch`) that re-runs every 10 seconds. Each run:
@@ -237,13 +239,47 @@ An unlocked visitor page contains a tiny fragment (`_watch`) that re-runs every 
 
 So removal takes effect **within 10 seconds**, even if the visitor doesn't click anything.
 
+### 5.5 "Remember this device for 2 hours" (the pass)
+Without it, every refresh starts a new Streamlit session, and a new session has no unlock, so visitors had to
+type a code again. Now, after a correct code (with **Ingat peranti ini selama 2 jam** ticked, the default), the
+browser keeps a **signed pass** in a cookie named `cz_pass`:
+
+```
+pass = base64url( {"r": round, "d": device_id, "n": name, "e": expiry_time} ) + "." + HMAC-SHA256(key, that text)
+key  = HMAC-SHA256(code secret, "cz-remember-pass")      # a separate key derived from the secret
+```
+
+When a new session starts, `gate()` reads the cookie and accepts it only if **all** of these hold:
+
+| Check | Why |
+|---|---|
+| The signature matches | Only the app (which knows the secret) can make a pass; editing any letter breaks it |
+| Expiry not passed (2 h, never past the end of sharing) | Passes die on their own |
+| Same round as now | **Matikan**, **Keluarkan semua** or switching on again cancels every pass at once |
+| The device isn't removed/blocked and its IP isn't blocked | **Keluarkan** / **Sekat IP** cancel that device's pass |
+
+An open page also locks itself when its 2 hours are up (the heartbeat checks the expiry).
+
+Cookie settings: `Max-Age` = time left, `Path=/`, `SameSite=Strict` (not sent by other websites), `Secure` on
+HTTPS (never sent unencrypted). It can't be `HttpOnly`, because it is set from JavaScript; that means a script
+running on the page could read it, but the app runs no third-party scripts.
+
+**Why sign instead of just storing "unlocked=yes"?** Anyone can edit their own cookies. A signature is a stamp
+only the app can make, so a visitor can't invent a pass, extend its time or change the round.
+
+### 5.6 Phone menu
+On screens narrower than 768 px Streamlit hides its top menu behind a small **»** button, so phone visitors
+only saw the first view. `app.py` adds a row of links (Pelajar · Pensyarah · Penyelidik & Pakar) shown only
+on narrow screens (CSS `@media (max-width: 767px)`).
+
 ---
 
 ## Part 6 · Monitoring and removing devices
 
 ### 6.1 What counts as a device
-Each browser **tab** is a Streamlit session with a unique `session_id`. When someone types a valid code, the app
-records:
+A **device** is one browser. It gets a random `device_id` when its owner types a correct code, and that ID is
+inside its 2-hour pass, so refreshing or opening a new tab is the *same* device (the list shows a visit count).
+If **Ingat peranti** was unticked, each new tab needs a code and becomes a new device. The app records:
 
 | Field | Source |
 |---|---|
@@ -254,7 +290,8 @@ records:
 | Entered at / last seen | Clock; last seen is updated by the heartbeat |
 | Status | aktif / dikeluarkan / disekat |
 
-The list lives in memory (`_reg`) and is cleared when a new round starts or the app restarts. Every event is
+The list is kept in memory and saved to `results/share_devices.json`, so removed and blocked devices **stay out
+even if the app restarts**. It is cleared when a new round starts. Every event is
 also written to `results/share_log.csv` (download it from the Kongsi page).
 
 ### 6.2 Actions on the Kongsi page
@@ -363,6 +400,8 @@ So once the tunnel exists, `cert.pem` can leave the PC, while `Start Sharing.bat
 3. Unplug the USB and store it somewhere safe.
 4. Test: run `Start Sharing.bat`. It should still connect, because running only needs the `.json` file.
 
+(Prefer copy-then-delete? Copy it to the USB, check the copy opens, then delete the original.)
+
 **When you need it again** (to create, route or delete a tunnel), plug in the USB and point `cloudflared` at it
 with `--origincert`, without copying it back:
 ```bash
@@ -381,45 +420,9 @@ Also check **DNS → Records** for any record you don't recognise.
 `pantun.aimanjamal.com`. Delete the tunnel (`cloudflared tunnel --origincert … delete pantun`) and create a new
 one; the old credentials stop working at once.
 
-### 8.1 Keeping `cert.pem` off the PC (the USB method)
-
-The two secret files have very different power:
-
-| File | What someone could do with it | Needed for |
-|---|---|---|
-| `cert.pem` | Create, change and delete tunnels **and DNS records for your whole domain** (e.g. point `aimanjamal.com` somewhere else) | Only setup jobs: `tunnel create`, `route dns`, `delete` |
-| `<tunnel-id>.json` | Run *this one* tunnel (pretend to be your PC for `pantun.aimanjamal.com`) | Every time you share (`tunnel run`) |
-
-So once the tunnel exists, `cert.pem` is no longer needed day to day, and the safest place for it is **off the PC**.
-
-**Where to keep it**
-
-| Location | Safer than leaving it in `C:\Users\…\.cloudflared`? |
-|---|---|
-| Another drive on the same PC (e.g. `D:\`) | **No.** Same user, same programs, same malware can read every drive. It only tidies the OS drive. |
-| A USB drive that is unplugged | **Yes.** Nothing can read it while it isn't connected. |
-| A password-protected 7-Zip archive, or a password manager's file attachment | **Yes.** Unreadable without your password. |
-| Anything under `G:\My Drive` (Google Drive) | **Never.** It would be uploaded to the cloud. |
-| Inside the project folder (`D:\CODES\pantun-coherence`) | **Never.** It could be committed to GitHub by mistake. |
-
-**Steps**
-1. Copy `C:\Users\Administrator\.cloudflared\cert.pem` to the USB drive (or into a password-protected 7-Zip archive).
-2. Check that the copy opens, then **delete** the original from `.cloudflared`.
-3. Unplug the USB drive and keep it somewhere safe.
-4. Test: run `Start Sharing.bat`. It still works, because running only needs `pantun.yml` and the `.json` file.
-
-**When you need it again** (to change or delete the tunnel), plug the USB in and point `cloudflared` at it,
-instead of copying it back:
-```bash
-cloudflared tunnel --origincert E:\cert.pem delete pantun
-```
-(`E:` is the USB drive's letter; check it in File Explorer.) If you lose the USB drive, nothing breaks:
-run `cloudflared tunnel login` again to get a fresh certificate.
-
-**The `.json` file** has to stay on the PC for sharing to work. If you would rather keep it off the OS drive,
-move it (e.g. to `D:\Secrets\cloudflared\`) and update two places: the `credentials-file:` line in `pantun.yml`,
-and the `--config` path in `Start Sharing.bat` if you move `pantun.yml` too. If the `.json` file ever leaks,
-delete the tunnel and create a new one (that makes the old file useless).
+**The `.json` file has to stay on the PC** for sharing to work. To keep it off the OS drive, move it (e.g. to
+`D:\Secrets\cloudflared\`) and update the `credentials-file:` line in `pantun.yml` (and the `--config` path in
+`Start Sharing.bat` if you move `pantun.yml` too). Never put it in Google Drive or a project folder.
 
 ---
 
@@ -505,6 +508,7 @@ write the config file and run it (Part 8).
 1. Wrong-code limits per IP and overall (Part 7).
 2. Auto-expiry of sharing.
 3. Heartbeat fragment that locks removed visitors (Part 5.4).
+4. A signed 2-hour pass in a cookie, checked against round, expiry and device status (Part 5.5).
 4. Device list with remove/block (Part 6).
 5. Access log CSV.
 6. A lock around shared state, and atomic file writes (write to `.tmp`, then `os.replace`).
@@ -522,6 +526,8 @@ write the config file and run it (Part 8).
 
 **Does not protect against**
 - Someone you let in copying what they see (screenshots, saved CSV/PDF exports).
+- Someone who copies a visitor's `cz_pass` cookie to another browser, for up to 2 hours. **Keluarkan** on that
+  device, or **Keluarkan semua**, cancels it.
 - A person you removed who gets a new code from someone else, or changes IP to dodge a block.
 - Your PC being off or asleep (the site goes down).
 - Cloudflare itself being able to see the traffic (Part 2.5).

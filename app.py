@@ -36,4 +36,20 @@ pages = [
 ]
 if not is_visitor():   # only on this computer: switch sharing on/off and see the code
     pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
-st.navigation(pages, position="top").run()
+nav = st.navigation(pages, position="top")
+
+# On a phone Streamlit hides the top menu behind a small button, so visitors only saw the first view.
+# This row of links shows the views on narrow screens only.
+st.html("""<style>
+.st-key-cz_mobnav { display: none; }
+@media (max-width: 767px) {
+  .st-key-cz_mobnav { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 10px;
+                      border-bottom: 1px solid rgba(222, 178, 81, .45); margin-bottom: 6px; }
+  .st-key-cz_mobnav [data-testid="stPageLink"] a { background: #fff; border: 1.5px solid #E3DCCB; border-radius: 999px;
+                      padding: 4px 12px; white-space: nowrap; }
+}
+</style>""")
+with st.container(key="cz_mobnav", horizontal=True):
+    for p in pages:
+        st.page_link(p, label=p.title, icon=p.icon, width="content")
+nav.run()
