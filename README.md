@@ -33,18 +33,17 @@ What to expect:
 - Needs `data/pantun.csv` and `results/` (made by the steps below). Uses about 9.5 GB RAM.
 - If the folder is moved to another drive, `.venv` stops working. Delete `.venv` and run Setup again.
 
-## Sharing online for a while (pantun.aimanjamal.com)
-The app can be opened from anywhere through a Cloudflare Tunnel, protected by a code:
-1. Start the demo (`Start Demo.bat`), then double-click **`Start Sharing.bat`**. Keep its window open;
-   close it to take the site offline.
-2. In the demo on this computer, open the **Kongsi** page (only shown here, never to visitors), choose how
-   long (30 min – 8 h) and press **Hidupkan perkongsian**.
-3. Give visitors the 6-digit code shown there. It changes every 15 seconds; the previous code is also accepted.
+## Sharing online (pantun.aimanjamal.com)
+The app can be opened from anywhere through a Cloudflare Tunnel. Two ways in:
+- **Members (Ahli)**: on the **Kongsi** page (only shown on this computer) create an account with a personal key
+  valid for 1 day to 1 month, and send them the message it shows. Every login is kept in a history (time, IP,
+  country, device). Extend, make a new key, sign out their devices, or revoke at any time.
+- **Guests (Tetamu)**: switch the guest code on for 30 min – 8 h and read out the 6-digit code (changes every
+  15 s). Guest devices are listed with buttons to remove them or block their IP.
 
-While sharing is off (or after the time runs out) visitors only see "Perkongsian ditutup" and no code works.
-Switching sharing off locks out everyone who is already in (within 10 seconds). The Kongsi page lists every
-connected device (name, browser, IP, country) with buttons to remove it or block its IP. Full explanation and
-rebuild guide: `docs/sharing_guide.md`. Code: `src/share.py`.
+To go online: start `Start Demo.bat`, then double-click **`Start Sharing.bat`** (keep its window open; close it
+to go offline). Data stays on this computer in `results/share.db` (SQLite; keys stored only as scrypt hashes).
+Full explanation, theory, checklists and rebuild guide: `docs/sharing_guide.md`. Code: `src/share.py`.
 Tunnel settings: `%USERPROFILE%\.cloudflared\pantun.yml` (keep the credentials file there secret).
 
 ## Setup (Windows, CPU only)

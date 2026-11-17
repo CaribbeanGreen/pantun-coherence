@@ -1,22 +1,25 @@
-# Sharing a local app safely with a rotating code: the full guide (0 → 100)
+# Sharing a local app safely: member accounts, a rotating guest code and a tunnel (0 → 100)
 
 This guide explains, from the ground up, how **Semak Pantun** is put online at `https://pantun.aimanjamal.com`
-while it keeps running on your own PC, and how the **6-digit code that changes every 15 seconds** decides who
-may get in. It covers the theory (networking, DNS, tunnels, one-time-password maths, security), the design
+while it keeps running on your own PC, and who may get in: **members** (an account you create, with a personal
+key valid for a day, a week, …, and a permanent login history) and **guests** (a 6-digit code that changes every
+15 seconds, for one-off visits). It covers the theory (networking, DNS, tunnels, one-time-password maths, security), the design
 choices in this project, and a step-by-step recipe to rebuild the whole thing yourself in a new project.
 
 Files this guide talks about:
 
 | File | What it is |
 |---|---|
-| `src/share.py` | The code gate, the share switch, the device monitor and the access log |
+| `src/share.py` | Members, the guest code, the gate, the device monitor and the event log |
 | `app.py` | Calls `gate()` before any page runs; adds the owner-only **Kongsi** page |
 | `Start Sharing.bat` | Starts the Cloudflare Tunnel |
 | `%USERPROFILE%\.cloudflared\pantun.yml` | Tunnel settings (which address goes to which local port) |
 | `%USERPROFILE%\.cloudflared\cert.pem` | Your Cloudflare login certificate (**secret**) |
 | `%USERPROFILE%\.cloudflared\623e5a61-….json` | The tunnel's credentials (**secret**) |
-| `results/share_state.json` | The code secret and the on/off state (**secret**, never committed) |
-| `results/share_log.csv` | Access log: who came in, wrong codes, removals |
+| `results/share.db` | SQLite database: members (hashed keys only), every login, every event |
+| `results/share_state.json` | The guest-code secret, guest on/off and round, members on/off (**secret**) |
+| `results/share_devices.json` | Guest devices and blocked IPs of the current round |
+| `results/share_log.csv` | Older event log (copied into `share.db` the first time the new version runs) |
 
 ---
 
@@ -38,8 +41,8 @@ Four pieces work together:
 2. **The tunnel program** (`cloudflared`) on your PC *dials out* to Cloudflare and keeps that connection open.
    Requests for `pantun.aimanjamal.com` come back down this connection and are handed to `localhost:8501`.
 3. **Cloudflare DNS** says "`pantun.aimanjamal.com` lives at this tunnel".
-4. **The gate** inside the app: anyone arriving through Cloudflare must type the current code, and only while
-   you have switched sharing on.
+4. **The gate** inside the app: anyone arriving through Cloudflare must log in as a **member** (username + personal
+   key) or type the current **guest code** while you have guest sharing switched on.
 
 The tunnel decides *whether the site is reachable at all*. The gate decides *who may use it*. You need both.
 
@@ -312,6 +315,104 @@ also written to `results/share_log.csv` (download it from the Kongsi page).
 
 ---
 
+## Part 6A · Member accounts (people who come back)
+
+Guest codes are perfect for "show this to someone right now", but every round starts fresh and nobody has a
+lasting identity. **Members** fix that: you create an account once, and every login is kept forever.
+
+### 6A.1 How it works for you and for them
+1. **Kongsi → Ahli → Tambah ahli**: type a username (e.g. `drhasiah`), full name, how long (1 day … 1 month)
+   and an optional note, then **Cipta akaun dan kunci**.
+2. The app shows a ready-to-send message **once**:
+   ```
+   Akses Semak Pantun
+   Laman: https://pantun.aimanjamal.com
+   Pilih 'Ahli', kemudian masukkan:
+   Nama pengguna: drhasiah
+   Kunci: K7QM-2XPA-9DHT
+   Sah hingga: 24/11 14:03
+   ```
+   Copy it (copy button on the box) and send it by WhatsApp or email.
+3. They open the site, choose **Ahli**, type username + key. Their browser is remembered for up to **24 hours**
+   (never past the account's end date); after that they type the key again.
+4. On the member list you see: status (✅ Aktif, 🟢 Dalam talian, ⏳ Luput, ⛔ Dibatalkan), valid-until, number
+   of logins, last login, and **Sejarah log masuk** (every login: time, IP, country, device, key or remembered).
+
+| Button | What it does | Old key? | Remembered browsers? |
+|---|---|---|---|
+| **+1 hari / +1 minggu** | Extend the end date | still works | still work |
+| **Kunci baharu** | Make a new key (shown once) | **stops working** | **signed out** |
+| **Log keluar peranti** | Sign out every browser, e.g. a lost phone | still works | **signed out** |
+| **Batalkan / Aktifkan semula** | Switch the account off / on | refused while off | **signed out** |
+| **Padam** | Delete the account (its login history is kept) | gone | **signed out** |
+| **Benarkan ahli log masuk** (toggle) | Close member logins for everyone at once | refused while off | **signed out** |
+
+Members don't depend on the guest switch: they can log in whenever the site is online (`Start Demo.bat` +
+`Start Sharing.bat` running) and their account is active.
+
+### 6A.2 The key, and why the app never stores it
+A key is 12 characters from a 31-letter alphabet without look-alikes (no `0/O`, `1/I/L`), shown as
+`XXXX-XXXX-XXXX`. That is 31¹² ≈ **7.9 × 10¹⁷** possibilities (about 60 bits). Lower case and missing dashes
+are accepted.
+
+The database stores only a **hash** of the key, made with **scrypt**:
+```
+key_hash = scrypt(key, salt = 16 random bytes, N = 2^14, r = 8, p = 1)   # ~50 ms and 16 MB of memory per try
+```
+- **Hash**: a one-way function. You can check a key against it, but you can't turn it back into the key.
+- **Salt**: random bytes stored next to the hash, different for every member, so two equal keys never give
+  the same hash and pre-computed "rainbow tables" are useless.
+- **Slow on purpose**: about 50 ms per try on this PC. Normal logins don't notice; an attacker who steals
+  `share.db` can test only about 20 keys per second per CPU core, against 7.9 × 10¹⁷ possible keys.
+
+This is the same idea as storing passwords properly. The difference is that **you** generate the key, so it is
+always long and random. (People pick weak passwords; then you'd need password rules and reset emails.)
+
+### 6A.3 Why member logins aren't paused by the guest limit
+Guest codes have only 10⁶ possibilities, so everyone's wrong guest codes together are capped (30 per hour,
+then the guest code pauses). Member keys have 7.9 × 10¹⁷ possibilities, so guessing is hopeless even at
+millions of tries. If wrong member logins could pause the screen, anyone could **lock all your members out**
+just by typing rubbish (a denial-of-service). So member logins only have the per-IP limit (5 wrong attempts per
+10 minutes).
+
+### 6A.4 Not revealing who has an account
+"Username or key wrong" is the same message either way, and the app runs the same slow hash even when the
+username doesn't exist. So nobody can find out which usernames exist from the message or the response time.
+
+### 6A.5 How "remembered" member browsers are cancelled
+A member's pass (same signed cookie as in Part 5.5) contains the username, a **key_version** and a
+**session_gen**. Every page load and every heartbeat compares them with the database:
+- **Kunci baharu** adds 1 to `key_version`, so every old pass no longer matches.
+- **Log keluar peranti** adds 1 to `session_gen`: passes no longer match, but the key still works.
+- **Batalkan**, an expired account, or members switched off: refused straight away.
+
+Open pages lock themselves within 10 seconds (the heartbeat).
+
+### 6A.6 The database (SQLite)
+```sql
+members(username PK, name, note, key_hash, key_salt, key_version, session_gen, created, expires, status)
+logins (id, username, time, ip, country, device, how)       -- one row per login, kept forever
+events (id, time, event, who, ip, country, device, note)    -- everything: logins, wrong keys, guest codes, changes
+```
+**Why SQLite** rather than a JSON file, MySQL or PostgreSQL:
+
+| | SQLite | PostgreSQL / MySQL | JSON file |
+|---|---|---|---|
+| Setup | none (built into Python) | a server must run, with its own password | none |
+| Several logins at the same moment | safe (transactions; WAL mode) | safe | can corrupt without care |
+| Questions like "all logins by drhasiah this week" | SQL | SQL | write code by hand |
+| Backup | copy one file | export | copy one file |
+| Best for | one app on one PC (this) | many apps or servers sharing data | small settings |
+
+You can open `results/share.db` with **DB Browser for SQLite** (free) to look around, or query it:
+```sql
+SELECT username, datetime(time, 'unixepoch', 'localtime') AS masa, ip, country, device
+FROM logins ORDER BY time DESC LIMIT 20;
+```
+**Back it up** by copying `share.db` while the app is closed.
+
+---
+
 ## Part 7 · Wrong-code limits
 
 | Limit | Value | What happens |
@@ -509,6 +610,7 @@ write the config file and run it (Part 8).
 2. Auto-expiry of sharing.
 3. Heartbeat fragment that locks removed visitors (Part 5.4).
 4. A signed 2-hour pass in a cookie, checked against round, expiry and device status (Part 5.5).
+5. Member accounts in SQLite with scrypt-hashed keys, key_version / session_gen for sign-out (Part 6A).
 4. Device list with remove/block (Part 6).
 5. Access log CSV.
 6. A lock around shared state, and atomic file writes (write to `.tmp`, then `os.replace`).
@@ -540,13 +642,49 @@ write the config file and run it (Part 8).
 
 ---
 
-## Part 11 · Day-to-day checklist
+## Part 11 · Checklists (tick as you go)
 
-1. Double-click `Start Demo.bat` (wait 1–2 minutes for the models to load).
-2. Double-click `Start Sharing.bat` and keep its window open.
-3. Open **Kongsi** → choose how long → **Hidupkan perkongsian**.
-4. Read the code to your visitor; watch them appear under **Peranti yang disambung**.
-5. When finished: **Matikan perkongsian sekarang**, then close the `Start Sharing.bat` window.
+### Once (already done for this project)
+- [ ] `cloudflared` installed (`winget install --id Cloudflare.cloudflared -e`)
+- [ ] `cloudflared tunnel login` → **Authorize** → `cert.pem` saved
+- [ ] `cloudflared tunnel create pantun` → credentials `.json` saved
+- [ ] `cloudflared tunnel route dns pantun pantun.aimanjamal.com` → CNAME added
+- [ ] `%USERPROFILE%\.cloudflared\pantun.yml` written (ingress → `http://localhost:8501`)
+- [ ] `cert.pem` moved to a USB drive (Part 8.1)
+- [ ] `results/` is in `.gitignore` (secrets and database never committed)
+
+### Each time you open the site
+- [ ] Double-click `Start Demo.bat`; wait 1–2 minutes for the models
+- [ ] Double-click `Start Sharing.bat`; keep its window open
+- [ ] Open `http://localhost:8501/kongsi`
+- [ ] **Ahli** tab: **Benarkan ahli log masuk** is on (if members should get in)
+- [ ] **Tetamu** tab: switch the guest code on only if someone without an account needs to see it now
+- [ ] Check `https://pantun.aimanjamal.com` on your phone (mobile data, not Wi-Fi) shows the login screen
+
+### Adding a member
+- [ ] **Tambah ahli**: username, full name, how long, note
+- [ ] Copy the message from the box (the key is shown only once) and send it privately
+- [ ] Press **Sudah disalin**
+- [ ] Later: their first login appears in **Sejarah log masuk**
+
+### When you're done
+- [ ] **Tetamu**: **Matikan kod tetamu** (if it was on)
+- [ ] Close the `Start Sharing.bat` window (site goes offline; members can't get in either)
+- [ ] Optional: close `Start Demo.bat`
+
+### Weekly safety check
+- [ ] **Log** tab: look for many `kod salah` / `log masuk gagal` from one IP
+- [ ] Member list: **Batalkan** or **Padam** anyone who no longer needs access
+- [ ] Anyone who lost a phone: **Log keluar peranti**; if the key may have leaked: **Kunci baharu**
+- [ ] Copy `results/share.db` somewhere safe (backup)
+- [ ] Cloudflare dashboard → DNS: only the records you expect
+
+### Something leaked
+- [ ] A member's key → **Kunci baharu** (old key and their browsers stop at once)
+- [ ] The guest code was overheard → **Keluarkan semua tetamu** or switch the guest code off
+- [ ] `cert.pem` → delete its API token in Cloudflare (Part 8.1), log in again
+- [ ] Tunnel `.json` → delete and recreate the tunnel
+- [ ] `results/share_state.json` (guest secret) → delete it with the app closed; a new secret is made
 
 ## Part 12 · Troubleshooting
 
@@ -556,6 +694,8 @@ write the config file and run it (Part 8).
 | Visitors see "Bad gateway" (502) | The tunnel is up but the app isn't. Start `Start Demo.bat`. |
 | Tunnel log says "port 7844 blocked" | The network blocks the tunnel's port. Try another network, or add `--protocol http2` to the run command. (On this PC one Cloudflare region was blocked but the other worked.) |
 | "Kod tidak sah" with the right code | The code expired (over 30 s old) or sharing is off. Give the newest code. |
+| A member gets "Nama pengguna atau kunci salah" | Check spelling; the account may be expired or revoked (member list). If unsure, **Kunci baharu**. |
+| A member says they're asked for the key every day | Normal: browsers are remembered for 24 hours at most. |
 | Code screen says "dijeda" (paused) | 30 wrong codes in the last hour. Switch sharing off and on again. |
 | A visitor's device isn't listed as online | Their tab is closed, asleep or in the background; the heartbeat runs every 10 s. |
 
@@ -574,6 +714,13 @@ write the config file and run it (Part 8).
 | NAT | Router feature that lets many devices share one public IP |
 | Round | One sharing period; a new round invalidates every earlier unlock |
 | TOTP / HOTP | Time-based / counter-based one-time password (RFC 6238 / RFC 4226) |
+| Hash (one-way) | Turns a secret into a fingerprint that can be checked but not reversed |
+| Salt | Random bytes stored with a hash so equal secrets give different hashes |
+| scrypt | A deliberately slow, memory-hungry hash for passwords and keys |
+| Entropy (bits) | How hard a secret is to guess: 60 bits ≈ 10¹⁸ possibilities |
+| SQLite | A full SQL database stored in one file, built into Python |
+| WAL | SQLite "write-ahead log" mode: readers and a writer don't block each other |
+| Denial of service | Making a service unusable for others (e.g. locking everyone out on purpose) |
 
 ## Part 14 · References
 - RFC 4226, *HOTP: An HMAC-Based One-Time Password Algorithm*: https://www.rfc-editor.org/rfc/rfc4226
