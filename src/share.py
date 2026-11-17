@@ -709,13 +709,17 @@ def _key_message(username, key, expires):
             "Jangan kongsi kunci ini dengan orang lain.")
 
 
+def _members_toggled():
+    set_members(st.session_state["owner_members_on"])
+
+
 def members_panel():
     s = state()
-    on = st.toggle("Benarkan ahli log masuk", value=s["members"],
-                   help="Matikan untuk menutup akses semua ahli serta-merta (kunci mereka kekal).")
-    if on != s["members"]:
-        set_members(on)
-        st.rerun()
+    # The switch has a fixed key and saves only when the owner flips it (on_change). Passing the saved value as
+    # `value=` instead made Streamlit treat it as a new widget after every save, so it flipped back and forth.
+    st.session_state.setdefault("owner_members_on", s["members"])
+    st.toggle("Benarkan ahli log masuk", key="owner_members_on", on_change=_members_toggled,
+              help="Matikan untuk menutup akses semua ahli serta-merta (kunci mereka kekal).")
 
     shown = st.session_state.get("owner_new_key")
     if shown:
