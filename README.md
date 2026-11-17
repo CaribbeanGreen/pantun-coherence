@@ -1,6 +1,6 @@
 # Measuring Pembayang–Maksud Coherence in Malay Pantun Using Transformer Embeddings
 
-> **Joining the project or picking it up later?** Start with [docs/FOLLOW_UP.md](docs/FOLLOW_UP.md): setup, where things are, git rules and the open follow-up list.
+> **Joining the project or picking it up later?** Start with [HANDOFF.md](HANDOFF.md): setup, where things are, git rules and the open follow-up list.
 
 CSC575 project (Group T-CDCS2306B1).
 

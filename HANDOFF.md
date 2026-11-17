@@ -1,6 +1,6 @@
-# Follow-up / handover (read this first if you are joining the project)
+# Handoff (read this first if you are joining or continuing the project)
 
-Last updated: 17 Nov 2026. Owner: CaribbeanGreen. This note says where the project stands, how to get it
+Last updated: 18 Nov 2026. Owner: CaribbeanGreen. This note says where the project stands, how to get it
 running, and what is left to do, so anyone (a classmate, a lecturer, or a future you) can carry on.
 
 ## 1. What this is
@@ -46,17 +46,18 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 - No AI co-author lines in commit messages (owner's preference).
 
 ## 5. Current state
-- Branch **`illustrations`** (ahead of `main`): Irasutoya pictures and sign-up celebration; same-name check at
-  sign-up; lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
-  lecturer accounts, retired usernames). **To do: owner tries it locally, then merge into `main`.**
-- Branch `business-case-sync`: already merged into `main`; can be deleted.
+- **`main` is up to date** with everything below; work on a new branch from it.
+- Latest work (all merged): Irasutoya pictures and sign-up celebration; same-name check at sign-up;
+  lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
+  lecturer accounts, retired usernames); fix for the Semakan crash after answering an inquiry.
+- Old branches `illustrations` and `business-case-sync` are fully merged and can be deleted.
 - Hosting: temporary, via Cloudflare Tunnel at pantun.aimanjamal.com (**Start Sharing.bat**), off by default.
 
 ## 6. Follow-up list (open items)
 Tick them off here when done.
 
-- [ ] Owner tests the `illustrations` branch locally, then merge into `main`.
-- [ ] Delete the old `business-case-sync` branch (local and GitHub).
+- [x] Merge `illustrations` into `main` (done 17 Nov 2026).
+- [ ] Delete the old `illustrations` and `business-case-sync` branches (local and GitHub).
 - [ ] Decide whether the GitHub repo should stay **public** (fine for a course project, but think about it
       before adding anything personal).
 - [ ] Optional: a small showcase page on Vercel (Vercel cannot run Streamlit itself; it would only describe
