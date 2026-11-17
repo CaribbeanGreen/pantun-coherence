@@ -1,4 +1,4 @@
-"""Sharing the app online: member accounts, a guest code that changes every 15 s, and a device monitor.
+"""Sharing the app online: member accounts, a guest code that changes every 30 s, and a device monitor.
 
 Full explanation and rebuild guide: docs/sharing_guide.md.
 
@@ -8,7 +8,7 @@ Who can get in (visitors come through the Cloudflare tunnel; their requests carr
     up to 24 hours (never past the key's end). Every login is kept in a permanent history. The owner can extend,
     reset the key, sign out all devices, or revoke the account at any time.
   - GUESTS (Tetamu): while the owner has switched guest sharing ON, anyone with the current 6-digit code
-    (TOTP, RFC 6238, 15-second step) gets in; the browser is remembered for 2 hours. Each "round" of sharing
+    (TOTP, RFC 6238, 30-second step, as in Google Authenticator) gets in; the browser is remembered for 2 hours. Each "round" of sharing
     starts fresh, and the owner can remove a guest device or block its IP address.
   - On this computer (the owner) the app opens as normal and has the extra "Kongsi" page.
 
@@ -50,7 +50,7 @@ OLD_LOG = SHARE_DIR / "share_log.csv"      # earlier versions logged here; impor
 PUBLIC_URL = "https://pantun.aimanjamal.com"
 COOKIE = "cz_pass"
 
-PERIOD, DIGITS = 15, 6      # guest code: 6 digits, new every 15 s
+PERIOD, DIGITS = 30, 6      # guest code: 6 digits, new every 30 s (the Google Authenticator standard)
 GRACE_STEPS = 1             # also accept the previous guest code (0 = current code only)
 GUEST_REMEMBER = 2 * 3600   # a guest browser is remembered for 2 hours
 MEMBER_REMEMBER = 24 * 3600 # a member browser is remembered for 24 hours (never past the key's end)
@@ -212,7 +212,7 @@ def kick_all():
 # ---- Guest codes (TOTP, RFC 6238) ----------------------------------------------------------------
 
 def code_at(secret, t):
-    """6-digit code for time t: HMAC-SHA1(secret, number of 15-s steps since 1970), then 'dynamic truncation'."""
+    """6-digit code for time t: HMAC-SHA1(secret, number of 30-s steps since 1970), then 'dynamic truncation'."""
     counter = int(t // PERIOD)
     digest = hmac.new(bytes.fromhex(secret), struct.pack(">Q", counter), hashlib.sha1).digest()
     offset = digest[-1] & 0x0F

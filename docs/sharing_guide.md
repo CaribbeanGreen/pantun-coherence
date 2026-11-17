@@ -3,7 +3,7 @@
 This guide explains, from the ground up, how **Semak Pantun** is put online at `https://pantun.aimanjamal.com`
 while it keeps running on your own PC, and who may get in: **members** (an account you create, with a personal
 key valid for a day, a week, …, and a permanent login history) and **guests** (a 6-digit code that changes every
-15 seconds, for one-off visits). It covers the theory (networking, DNS, tunnels, one-time-password maths, security), the design
+30 seconds, for one-off visits). It covers the theory (networking, DNS, tunnels, one-time-password maths, security), the design
 choices in this project, and a step-by-step recipe to rebuild the whole thing yourself in a new project.
 
 Files this guide talks about:
@@ -120,12 +120,12 @@ Every web request carries **headers** (name: value lines). Cloudflare adds its o
 
 ### 4.1 The idea
 You and the app share a **secret** (a random 160-bit number). Both sides can compute a short code from
-*secret + current time*. Anyone without the secret cannot compute it, and a code is useless 15–30 seconds later.
+*secret + current time*. Anyone without the secret cannot compute it, and a code is useless 30–60 seconds later.
 This is exactly how Google Authenticator works. The standards are **RFC 4226 (HOTP)** and **RFC 6238 (TOTP)**.
 
 ### 4.2 The algorithm, step by step
 ```
-counter  = floor(unix_time / PERIOD)              # PERIOD = 15 s here (30 s in Google Authenticator)
+counter  = floor(unix_time / PERIOD)              # PERIOD = 30 s (same as Google Authenticator)
 message  = counter as 8 bytes, big-endian
 digest   = HMAC-SHA1(secret, message)             # 20 bytes
 offset   = last byte of digest & 0x0F             # a number 0..15 ("dynamic truncation")
@@ -151,7 +151,8 @@ Secret = the ASCII text `12345678901234567890`, period 30 s, time = 59 s:
 | & `0x7FFFFFFF` | 1,094,287,082 |
 | mod 1,000,000 | **287082** ✔ (matches the RFC) |
 
-Same secret with this app's 15-second period at time 1,763,251,200 → counter 117,550,080 → code **370113**.
+Same secret with this app's 30-second period at time 1,763,251,200 → counter 58,775,040 → code **640521**.
+(Earlier versions used a 15-second period; it was lengthened to 30 seconds because 15 was too quick to read out.)
 `src/share.py` passes both RFC test values (`code_at()`).
 
 ### 4.4 Where the secret lives
@@ -165,11 +166,11 @@ theory an attacker could measure response times to learn digits one by one. Cons
 that leak.
 
 ### 4.6 Why the previous code is also accepted (the "grace window")
-Codes change every 15 seconds. If you read out a code at second 13, the visitor has 2 seconds to type it. So the
-app also accepts the code from the *previous* 15-second step (`GRACE_STEPS = 1`). Authenticator apps do the
+Codes change every 30 seconds. If you read out a code at second 28, the visitor has 2 seconds to type it. So the
+app also accepts the code from the *previous* 30-second step (`GRACE_STEPS = 1`). Authenticator apps do the
 same, mainly for clocks that are slightly out of sync. Effect:
 
-- Each code is usable for **15 to 30 seconds** instead of 0 to 15.
+- Each code is usable for **30 to 60 seconds** instead of 0 to 30.
 - At any moment **2** codes are valid, so a random guess succeeds with probability **2 in 1,000,000**
   instead of 1 in 1,000,000.
 
@@ -189,10 +190,16 @@ So the grace window doubles a small number; the rate limits are what keep it sma
 an attacker would also show up on your Kongsi page as a growing "kod salah" count long before they had a real
 chance. To be stricter, set `GRACE_STEPS = 0` in `src/share.py` and read codes out right after they change.
 
-### 4.8 Why not use the Google Authenticator app itself?
-Google Authenticator only shows 30-second codes. The app shows its own 15-second codes on the Kongsi page, so no
-phone is needed. To use an authenticator app instead: set `PERIOD = 30` and add the secret to the app via an
-`otpauth://totp/...?secret=<base32 secret>&period=30` QR code.
+### 4.8 Using the Google Authenticator app (optional)
+The guest code now uses the same 30-second step and 6 digits as Google Authenticator, so the app's own display
+on the Kongsi page and an authenticator app would show the **same** code. The app shows it for you, so no phone
+is needed. If you ever want it on your phone too, the secret (hex, in `results/share_state.json`) must be turned
+into Base32 and added as an `otpauth://totp/Semak%20Pantun?secret=<BASE32>&period=30&digits=6` QR code.
+Keep that QR code private: it is the secret itself.
+
+**Does 30 seconds make guessing easier?** No. The chance per guess stays 2 in 1,000,000 (current + previous
+code), and the wrong-code limits in Part 7 count guesses per hour, not per code, so the odds in 4.7 are unchanged.
+The only difference: an overheard code stays usable for up to 60 seconds instead of 30.
 
 ---
 
@@ -545,7 +552,7 @@ import hashlib, hmac, json, os, secrets, struct, time
 import streamlit as st
 
 STATE = "share_state.json"
-PERIOD, DIGITS = 15, 6
+PERIOD, DIGITS = 30, 6
 
 def load():
     if not os.path.exists(STATE):
@@ -588,7 +595,7 @@ if not is_visitor:                                   # owner controls
     if s["on"]:
         @st.fragment(run_every=1)
         def live():
-            st.metric("Code", code_at(s["secret"], time.time()), help="changes every 15 s")
+            st.metric("Code", code_at(s["secret"], time.time()), help="changes every 30 s")
         live()
 
 st.write("🎉 The protected app goes here.")
@@ -622,7 +629,7 @@ write the config file and run it (Part 8).
 **Protects against**
 - Strangers finding the address: they see only the code screen, or "sharing closed".
 - Guessing codes: limited to about 30 guesses an hour (≈0.05 % chance over a full 8-hour share).
-- Old codes being reused later: they expire after 15–30 seconds.
+- Old codes being reused later: they expire after 30–60 seconds.
 - Forgetting to switch off: sharing ends by itself.
 - An unwanted person who is already in: remove or block them, or remove everyone.
 
