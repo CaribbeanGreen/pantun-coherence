@@ -34,12 +34,15 @@ What to expect:
 - If the folder is moved to another drive, `.venv` stops working. Delete `.venv` and run Setup again.
 
 ## Sharing online (pantun.aimanjamal.com)
-The app can be opened from anywhere through a Cloudflare Tunnel. Two ways in:
-- **Members (Ahli)**: on the **Kongsi** page (only shown on this computer) create an account with a personal key
-  valid for 1 day to 1 month, and send them the message it shows. Every login is kept in a history (time, IP,
-  country, device). Extend, make a new key, sign out their devices, or revoke at any time.
-- **Guests (Tetamu)**: switch the guest code on for 30 min – 8 h and read out the 6-digit code (changes every
-  30 s). Guest devices are listed with buttons to remove them or block their IP.
+The app can be opened from anywhere through a Cloudflare Tunnel:
+- **Accounts**: students sign up with a **class code** from their teacher; teachers sign up and wait for your
+  approval; experts or anyone else you create on the **Kongsi** page (only shown on this computer). Each
+  person sees only their own views (student / teacher + expert mode / expert). Every login is kept.
+- **Classes and inquiries**: teachers create classes and codes, manage their students, and answer their
+  students' "Saya tidak setuju" inquiries. Guest inquiries go to all teachers and are deleted when guest
+  access ends.
+- **Access without an account** (Kongsi): 🔒 Tutup (accounts only), 🎟️ Kod sahaja (30-second guest code) or
+  🌐 Terbuka (anyone can use the student page), for a time you choose.
 
 To go online: start `Start Demo.bat`, then double-click **`Start Sharing.bat`** (keep its window open; close it
 to go offline). Data stays on this computer in `results/share.db` (SQLite; keys stored only as scrypt hashes).

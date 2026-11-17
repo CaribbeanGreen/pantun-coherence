@@ -419,34 +419,90 @@ FROM logins ORDER BY time DESC LIMIT 20;
 **Back it up** by copying `share.db` while the app is closed.
 
 ### 6A.7 Roles: who may open which view (privacy)
-Every member has a **role**, chosen when you create them (and changeable with **Tukar peranan**). The role,
-not the person, decides which views exist for them; the others are not even in their menu, and a direct link
-to them only shows "Halaman ini hanya untuk pengguna yang dibenarkan".
+Every account has a **role**. The role decides which views exist for that person; the others are not even in
+their menu, and a direct link only shows "Halaman ini hanya untuk pengguna yang dibenarkan".
 
 | Who | Lands on | Can open |
 |---|---|---|
 | You on this PC | Pelajar | all three views + **Kongsi** |
-| Member · **Pelajar** | Pelajar | Pelajar |
-| Member · **Pensyarah** | **Pensyarah** | Pensyarah, Pelajar |
-| Member · **Penyelidik / Pakar** | **Penyelidik & Pakar** | Penyelidik, Pelajar |
-| Guest (30-second code) | Pelajar | Pelajar |
+| **Pelajar** (student) | Pelajar | Pelajar |
+| **Pensyarah** (teacher) | **Pensyarah** | Pensyarah, Penyelidik & Pakar (**mod pakar**), Pelajar |
+| **Penyelidik / Pakar** (expert) | **Penyelidik & Pakar** | Penyelidik, Pelajar |
+| Guest code / open mode | Pelajar | Pelajar |
 
-Why: student complaints carry names and their own pantun, which the report treats as personal data (PDPA).
-So the data each view shows is filtered too:
+Pelajar is always the default page at `/`; teachers and experts are sent to their own page once after logging
+in. (A page marked "default" loses its own address in Streamlit, which caused "Page not found" at
+`/pensyarah` when Pensyarah was the default.)
 
-| Data | Who sees it |
-|---|---|
-| A student's "Saya tidak setuju" | **Their own lecturer** (linked when you create the student) and you. A guest's, or one from a student with no lecturer, only you. |
-| Lecturer decisions (Semakan → log) | The lecturer who made them, and you |
-| Expert queue | Experts see only cases a lecturer sent with **Hantar kepada pakar**; raw student complaints stay with the lecturer. You see both. |
-| Expert ratings | Saved with the expert's username |
-
-Every person signed in through the site sees their name and role at the top with **Log keluar**. Logging out
-also deletes the remembered pass in that browser. A lecturer who entered with the guest code can press
-**Log masuk dengan akaun anda** at the bottom of the student page to switch to their own account.
-
-The roles are enforced in two places: `app.py` builds the menu only from `allowed_views()`, and each page calls
+The roles are enforced twice: `app.py` builds the menu only from `allowed_views()`, and each page calls
 `require_view(...)` at the top, so typing a page's address doesn't get around the menu.
+
+---
+
+## Part 6B · Sign-up, classes and inquiries (like Google Classroom)
+
+### 6B.1 Signing up (tab **Daftar** on the login screen)
+| Choice | Needs | Result |
+|---|---|---|
+| 🎒 **Pelajar** | name, username, password (8+), **class code** from their teacher | Account active at once, already in that class |
+| 🧑‍🏫 **Pensyarah** | name, username, password (8+) | **Waits for your approval** on Kongsi → Ahli |
+
+Why teachers need approval: a teacher can read inquiries from guests and their students. On a public site
+anyone could claim to be a teacher, so you decide who really is one (**Luluskan** / **Tolak**).
+
+Passwords people choose are stored the same way as keys: a salted **scrypt** hash (Part 6A.2), never the
+password itself. Unlike owner-issued keys they are case-sensitive. At most **5 sign-ups per IP per hour**
+stops someone filling the database with fake accounts. Anyone signed in can **Tukar kata laluan** (change
+password) from the bar at the top; this signs out their other devices.
+
+### 6B.2 Classes and codes (Pensyarah → **🏫 Kod kelas & pelajar**)
+- **Cipta kelas**: the teacher names a class (e.g. "BM2 · Pantun Nasihat") and gets a 6-character **code**
+  (e.g. `K7QM2X`, no look-alike letters). They give it to their students.
+- Each class shows its code, number of students and the student list.
+- Switch **Pelajar baharu boleh menyertai dengan kod ini** off to stop new joins (existing students stay).
+- **Keluarkan dari kelas**: remove a student. **Kata laluan sementara**: when a student forgets their password,
+  the teacher makes a temporary key (shown once); the student can change it after logging in.
+- A student can join more classes from **Sejarah Saya → Kelas saya → Sertai kelas lain**.
+
+### 6B.3 Inquiries ("Saya tidak setuju")
+| Sent by | Goes to | Kept? |
+|---|---|---|
+| A student in a class | **That class's teacher** (the student picks the class if they're in several) | Kept |
+| A guest (code) or open-mode visitor | **All approved teachers** | **Temporary**: deleted when the guest round / open mode ends, or after 24 h |
+| A student with no class | You (owner) only | Kept |
+
+Teachers see them under **Pensyarah → 📝 Semakan**: pick one, read the pantun and comment, write a reply and
+**Tandakan dijawab** (mark answered). Students see the reply under **Sejarah Saya → Pertanyaan saya**.
+A teacher can only answer inquiries they are allowed to see (checked again on the server).
+
+Experts (and teachers in mode pakar) see in their **Expert queue** only the cases a teacher sent with
+**Hantar kepada pakar**. Raw student inquiries, which carry names, stay with the teacher.
+
+Why delete guest inquiries? Guests have no account, so there is nobody to reply to after they leave, and
+keeping personal data only as long as needed is good practice (PDPA's data-retention principle).
+
+---
+
+## Part 6C · Access without an account (one setting: Tutup / Kod sahaja / Terbuka)
+Kongsi → **🌐 Akses tanpa akaun**. Only you can change it; teacher and expert pages always need an account.
+
+| Setting | Who can get in without an account |
+|---|---|
+| 🔒 **Tutup** | Nobody. Everyone must log in; even guest codes you gave stop working |
+| 🎟️ **Kod sahaja** | Only people you give the 30-second code (Pelajar page) |
+| 🌐 **Terbuka** | Anyone, straight to the Pelajar page, no code; they can still press **Log masuk / Daftar** |
+
+- **Kod sahaja** and **Terbuka** last for the time you choose (30 min – 8 h), then switch back to **Tutup**.
+- Every change starts new rounds: open guest and open-mode pages lock within 10 seconds, and their temporary
+  inquiries are deleted.
+- Members (accounts) are not affected by this setting; the separate switch **Benarkan ahli log masuk** on the
+  Ahli tab closes account logins too.
+
+**Why have a login at all?** Three reasons: (1) your **PC** does the work (each check uses CPU, and the models
+use about 9.5 GB of memory), so strangers can't be allowed to use it without limit; (2) the **pantun
+library** comes from published books with permission for this project only; (3) **student work** is personal
+data. **Terbuka** is fine for a showcase, as only the Pelajar page opens and nothing is stored about visitors
+beyond the access log.
 
 ---
 
@@ -695,18 +751,20 @@ write the config file and run it (Part 8).
 - [ ] Double-click `Start Sharing.bat`; keep its window open
 - [ ] Open `http://localhost:8501/kongsi`
 - [ ] **Ahli** tab: **Benarkan ahli log masuk** is on (if members should get in)
-- [ ] **Tetamu** tab: switch the guest code on only if someone without an account needs to see it now
+- [ ] **Akses tanpa akaun**: 🔒 Tutup normally; 🎟️ Kod sahaja for a controlled demo; 🌐 Terbuka for a showcase
 - [ ] Check `https://pantun.aimanjamal.com` on your phone (mobile data, not Wi-Fi) shows the login screen
 
-### Adding a member
-- [ ] **Tambah ahli**: username, full name, **role**, (students) **their lecturer**, how long, note
-- [ ] Create lecturers first, so students can be linked to them
+### Adding people
+- [ ] Teachers sign up themselves (**Daftar → Pensyarah**); approve them on **Kongsi → Ahli** (**Luluskan**)
+- [ ] Each teacher makes classes (**Pensyarah → Kod kelas & pelajar**) and gives students the code
+- [ ] Students sign up with that code (**Daftar → Pelajar**)
+- [ ] Experts, or anyone you prefer to set up yourself: **Cipta akaun** on Kongsi → Ahli
 - [ ] Copy the message from the box (the key is shown only once) and send it privately
 - [ ] Press **Sudah disalin**
 - [ ] Later: their first login appears in **Sejarah log masuk**
 
 ### When you're done
-- [ ] **Tetamu**: **Matikan kod tetamu** (if it was on)
+- [ ] **Akses tanpa akaun** back to 🔒 **Tutup**
 - [ ] Close the `Start Sharing.bat` window (site goes offline; members can't get in either)
 - [ ] Optional: close `Start Demo.bat`
 

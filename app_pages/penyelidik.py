@@ -5,6 +5,7 @@ The expert rating form saves to results/expert_ratings.csv — the data for the 
 """
 
 import json
+from datetime import datetime
 
 import altair as alt
 import numpy as np
@@ -16,7 +17,7 @@ from src.app_core import (DECISIONS_CSV, EXAMPLES, FLAGS_CSV, GOLD, LEAN_ENGLISH
                           RATINGS_CSV, RESULTS, TEAL, analyse, baselines, check_lines, help_button, load_calibration,
                           load_corpus, load_result_table, read_log, reference, ready_models, save_rating,
                           section_label, split_text, tour)
-from src.share import current_user, require_view
+from src.share import current_user, inquiries_for, require_view
 
 require_view("penyelidik")     # researchers / experts (and the owner) only
 ME = current_user()
@@ -129,13 +130,15 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
     st.caption(f"Corpus: {len(load_corpus()):,} published pantun · 13 books · {n_models} embedding models")
     help_button("penyelidik", lang="en")
 
-flags, decisions = read_log(FLAGS_CSV), read_log(DECISIONS_CSV)
+decisions = read_log(DECISIONS_CSV)
 queue = []
-# Experts see the cases lecturers sent on ("Hantar kepada pakar"). Raw student complaints, which carry
-# student names, stay with their lecturer; only the owner sees those here too.
-if not flags.empty and ME["kind"] == "owner":
-    queue += [{"from": f"student ({r.who or 'anonymous'})", "time": r.timestamp,
-               "lines": [r.line1, r.line2, r.line3, r.line4], "note": r.comment} for r in flags.itertuples()]
+# Experts (and teachers in expert mode) see the cases lecturers sent on ("Hantar kepada pakar"). Raw student
+# inquiries, which carry student names, stay with their teacher; only the owner sees those here too.
+if ME["kind"] == "owner":
+    inq = inquiries_for(ME)
+    queue += [{"from": f"{r.kind} ({r.who or 'anonymous'})",
+               "time": datetime.fromtimestamp(r.time).isoformat(timespec="seconds"),
+               "lines": [r.line1, r.line2, r.line3, r.line4], "note": r.comment} for r in inq.itertuples()]
 if not decisions.empty:
     queue += [{"from": f"instructor · {r._2} · {r.student}", "time": r.timestamp,
                "lines": [r.line1, r.line2, r.line3, r.line4], "note": r.note}

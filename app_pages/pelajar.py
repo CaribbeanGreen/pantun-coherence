@@ -13,7 +13,7 @@ import streamlit as st
 from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
                           check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
                           save_flag, tour)
-from src.share import current_user, sign_out
+from src.share import add_inquiry, current_user, join_class, my_inquiries, sign_out, student_classes
 
 KEYS = ["s_l1", "s_l2", "s_l3", "s_l4"]
 
@@ -144,16 +144,23 @@ def result_screen(res):
     me = current_user()
     with st.popover("🙋 Saya tidak setuju — minta guru semak", width="stretch"):
         with st.form("s_flag", border=False):
-            if me["kind"] == "member":                 # signed-in student: name and lecturer are known
-                who = me["name"]
-                st.caption(f"Dihantar sebagai **{who}**"
-                           + (" kepada pensyarah anda." if me["lecturer"] else "."))
+            class_code = ""
+            if me["kind"] == "member":                 # signed-in student: goes to their class teacher
+                classes = student_classes(me["username"])
+                if classes:
+                    class_code = st.selectbox("Hantar kepada", [c["code"] for c in classes],
+                                              format_func=lambda k: next(f"{c['name']} · {c['teacher_name'] or 'pemilik'}"
+                                                                         for c in classes if c["code"] == k))
+                else:
+                    st.caption("Anda belum menyertai kelas: ia akan dihantar kepada pemilik laman. Sertai kelas di "
+                               "tab **Sejarah Saya**.")
             else:
-                who = st.text_input("Nama atau ID pelajar (pilihan)")
+                st.caption("Dihantar kepada semua pensyarah. Ia **sementara**: dipadam apabila akses tetamu tamat.")
+            if me["kind"] != "member":
+                me = {**me, "name": st.text_input("Nama anda (pilihan)") or me["name"]}
             comment = st.text_area("Kenapa anda tidak setuju? (pilihan)")
             if st.form_submit_button("Hantar kepada guru", type="primary"):
-                # Only the student's own lecturer sees it (or just the owner, for guests / no lecturer).
-                save_flag("pelajar", res["lines"], res, comment, who, me["username"], me["lecturer"])
+                add_inquiry(me, res["lines"], res, comment, class_code)
                 st.success("Terima kasih! Guru anda akan menyemak pantun ini.")
 
 
@@ -183,8 +190,42 @@ def learn_screen():
                 st.toast("Contoh dimasukkan. Buka tab **Semak Pantun** dan tekan butang semak.", icon="✨")
 
 
+def account_panel():
+    """For signed-in members: their classes (join with a code) and their inquiries with the teacher's reply."""
+    me = current_user()
+    if me["kind"] != "member":
+        return
+    with st.container(border=True):
+        st.markdown("**🏫 Kelas saya**")
+        classes = student_classes(me["username"])
+        if classes:
+            st.markdown("  \n".join(f"· **{c['name']}** ({c['code']}) · {c['teacher_name'] or 'pemilik'}"
+                                    for c in classes))
+        else:
+            st.caption("Belum menyertai kelas.")
+        with st.form("s_join", border=False, clear_on_submit=True):
+            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+            code = c1.text_input("Sertai kelas lain", max_chars=8, placeholder="kod kelas daripada pensyarah")
+            if c2.form_submit_button("Sertai", icon=":material/group_add:"):
+                try:
+                    cls = join_class(me["username"], code)
+                    st.success(f"Anda kini dalam kelas **{cls['name']}**.")
+                except ValueError as e:
+                    st.error(str(e))
+        mine = my_inquiries(me["username"])
+        if not mine.empty:
+            st.markdown("**🙋 Pertanyaan saya**")
+            mine["time"] = pd.to_datetime(mine["time"], unit="s").dt.tz_localize("UTC") \
+                .dt.tz_convert("Asia/Kuala_Lumpur").dt.strftime("%d/%m %H:%M")
+            mine["status"] = mine["status"].map({"baru": "⏳ Menunggu", "selesai": "✅ Dijawab"}).fillna(mine["status"])
+            st.dataframe(mine.rename(columns={"time": "Masa", "line1": "Baris 1", "line3": "Baris 3",
+                                              "comment": "Komen saya", "status": "Status", "reply": "Jawapan guru"}),
+                         hide_index=True)
+
+
 def history_screen():
     """Sejarah Saya: the pantun checked in this session (kept in the browser session only)."""
+    account_panel()
     hist = st.session_state["s_history"]
     if not hist:
         st.info("Belum ada pantun yang disemak. Semak satu pantun dan ia akan muncul di sini.",
@@ -230,12 +271,13 @@ with middle.container(key="pelajar"):
     with tab_hist:
         history_screen()
 
-    # A lecturer or expert who came in with the guest code can switch to their own account here.
-    if current_user()["kind"] == "guest":
+    # A lecturer or expert who came in with the guest code (or open mode) can switch to their own account here.
+    if current_user()["kind"] in ("guest", "public"):
         with st.container(horizontal=True, horizontal_alignment="center"):
             st.caption("Pensyarah atau pakar?")
             st.button("Log masuk dengan akaun anda", icon=":material/login:", type="tertiary",
-                      on_click=sign_out, key="s_staff_login")
+                      on_click=lambda: (sign_out(), st.session_state.update(cz_want_login=True)),
+                      key="s_staff_login")
 
 tour("pelajar", [
     (".st-key-s_lines", "Tulis pantun anda ✍️",

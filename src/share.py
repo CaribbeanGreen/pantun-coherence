@@ -32,6 +32,7 @@ import sqlite3
 import struct
 import threading
 import time
+import unicodedata
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -115,6 +116,35 @@ CREATE TABLE IF NOT EXISTS events (
     event    TEXT NOT NULL,
     who      TEXT DEFAULT '', ip TEXT DEFAULT '', country TEXT DEFAULT '', device TEXT DEFAULT '', note TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS classes (          -- a teacher's class; students join with its code
+    code     TEXT PRIMARY KEY,
+    name     TEXT NOT NULL,
+    teacher  TEXT NOT NULL,                   -- teacher's username ('' = made by the owner)
+    created  REAL NOT NULL,
+    active   INTEGER NOT NULL DEFAULT 1       -- 0: the code no longer lets new students join
+);
+CREATE TABLE IF NOT EXISTS class_members (
+    code     TEXT NOT NULL,
+    username TEXT NOT NULL,
+    joined   REAL NOT NULL,
+    PRIMARY KEY (code, username)
+);
+CREATE TABLE IF NOT EXISTS inquiries (        -- "Saya tidak setuju" requests
+    id          INTEGER PRIMARY KEY,
+    time        REAL NOT NULL,
+    kind        TEXT NOT NULL,                -- pelajar (kept) | tetamu (temporary) | pemilik | lama (old CSV)
+    who         TEXT DEFAULT '',
+    username    TEXT DEFAULT '',
+    class_code  TEXT DEFAULT '',
+    round       TEXT DEFAULT '',              -- tetamu: the guest round / open-mode round it belongs to
+    expires     REAL DEFAULT 0,               -- tetamu: deleted after this time
+    line1 TEXT, line2 TEXT, line3 TEXT, line4 TEXT,
+    comment     TEXT DEFAULT '',
+    sound       REAL, meaning_pct INTEGER, rules INTEGER,
+    status      TEXT DEFAULT 'baru',          -- baru | selesai
+    handled_by  TEXT DEFAULT '',
+    reply       TEXT DEFAULT ''
+);
 """
 
 
@@ -132,8 +162,23 @@ def _init_db():
         cols = {r["name"] for r in con.execute("PRAGMA table_info(members)")}
         if "role" not in cols:          # added later: which views a member may open
             con.execute("ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT 'pelajar'")
-        if "lecturer" not in cols:      # for students: the lecturer who receives their complaints
+        if "lecturer" not in cols:      # earlier version: a student's lecturer (now classes do this)
             con.execute("ALTER TABLE members ADD COLUMN lecturer TEXT NOT NULL DEFAULT ''")
+        if "cred" not in cols:          # 'key' = owner-issued key, 'password' = chosen by the person at sign-up
+            con.execute("ALTER TABLE members ADD COLUMN cred TEXT NOT NULL DEFAULT 'key'")
+        old_flags = SHARE_DIR / "expert_review_flags.csv"
+        if old_flags.exists() and not con.execute("SELECT 1 FROM inquiries LIMIT 1").fetchone():
+            with open(old_flags, encoding="utf-8") as f:   # earlier complaints: kept, visible to the owner only
+                for r in csv.DictReader(f):
+                    try:
+                        t = datetime.fromisoformat(r["timestamp"]).timestamp()
+                    except (KeyError, ValueError):
+                        continue
+                    con.execute("INSERT INTO inquiries(time, kind, who, username, line1, line2, line3, line4, comment,"
+                                " sound, meaning_pct, rules) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                                (t, "lama", r.get("who", ""), r.get("student_user", ""), r.get("line1"), r.get("line2"),
+                                 r.get("line3"), r.get("line4"), r.get("comment", ""), r.get("sound") or None,
+                                 r.get("meaning_pct") or None, r.get("rules") or None))
         if OLD_LOG.exists() and not con.execute("SELECT 1 FROM events LIMIT 1").fetchone():
             with open(OLD_LOG, encoding="utf-8") as f:
                 for r in csv.DictReader(f):
@@ -175,10 +220,16 @@ def state():
             s.update(secret=secrets.token_hex(20), enabled=False, until=0, round="", members=True)
             changed = True
         s.setdefault("members", True)
+        for k, v in (("open", False), ("open_round", ""), ("open_until", 0)):
+            s.setdefault(k, v)
         if s.get("enabled") and time.time() >= s.get("until", 0):
             s.update(enabled=False, round="")
             changed = True
             _log("tetamu: tamat masa")
+        if s.get("open") and time.time() >= s.get("open_until", 0):
+            s.update(open=False, open_round="")
+            changed = True
+            _log("terbuka: tamat masa")
         if changed:
             _write(STATE_FILE, s)
         return s
@@ -194,6 +245,30 @@ def set_sharing(on, hours=1.0):
             s.update(enabled=False, until=0, round="")
         _write(STATE_FILE, s)
     _log("tetamu: perkongsian hidup" if on else "tetamu: perkongsian mati", note=f"{hours:g} jam" if on else "")
+
+
+GUEST_MODES = {"tutup": "🔒 Tutup", "kod": "🎟️ Kod sahaja", "terbuka": "🌐 Terbuka"}
+
+
+def guest_mode(s=None):
+    s = s or state()
+    return "terbuka" if s.get("open") else "kod" if s.get("enabled") else "tutup"
+
+
+def set_guest_mode(mode, hours=1.0):
+    """The owner's one setting for access without an account:
+    tutup = nobody (accounts only) · kod = only people given the 30-second code · terbuka = anyone, student page.
+    Every change starts new rounds, so earlier guests and open-mode visitors are locked out."""
+    with _lock:
+        s = state()
+        until = time.time() + hours * 3600
+        s.update(enabled=mode == "kod", until=until if mode == "kod" else 0,
+                 round=secrets.token_hex(8) if mode == "kod" else "",
+                 open=mode == "terbuka", open_until=until if mode == "terbuka" else 0,
+                 open_round=secrets.token_hex(8) if mode == "terbuka" else "")
+        _write(STATE_FILE, s)
+    _log(f"akses tanpa akaun: {mode}", note=f"{hours:g} jam" if mode != "tutup" else "")
+    _purge_inquiries()
 
 
 def set_members(on):
@@ -245,28 +320,42 @@ def _norm_key(key):
     return re.sub(r"[^A-Z0-9]", "", str(key).upper())
 
 
+def _hash_secret(secret, salt, cred="key"):
+    """scrypt: deliberately slow and memory-hungry, so a stolen database can't be cracked quickly.
+    Owner-issued keys ignore case and dashes; passwords people choose are used exactly as typed."""
+    raw = _norm_key(secret) if cred == "key" else unicodedata.normalize("NFC", str(secret))
+    return hashlib.scrypt(raw.encode(), salt=bytes.fromhex(salt), n=2 ** 14, r=8, p=1, dklen=32).hex()
+
+
 def _hash_key(key, salt):
-    """scrypt: deliberately slow and memory-hungry, so a stolen database can't be cracked quickly."""
-    return hashlib.scrypt(_norm_key(key).encode(), salt=bytes.fromhex(salt), n=2 ** 14, r=8, p=1, dklen=32).hex()
+    return _hash_secret(key, salt, "key")
 
 
 _DUMMY_SALT = secrets.token_hex(16)
 
 
-def check_member(username, key):
-    """The member row if username + key are right and the account is active and unexpired, else None.
+def authenticate(username, secret):
+    """('ok', member) | ('pending', None) for a teacher awaiting approval | ('bad', None).
     Always does the same slow hash, so the response time doesn't reveal whether a username exists."""
     username = str(username).strip().lower()
     with closing(_db()) as con:
         m = con.execute("SELECT * FROM members WHERE username = ?", (username,)).fetchone()
     if m is None:
-        _hash_key(key, _DUMMY_SALT)
-        return None
-    if not hmac.compare_digest(_hash_key(key, m["key_salt"]), m["key_hash"]):
-        return None
+        _hash_secret(secret, _DUMMY_SALT, "password")
+        return "bad", None
+    if not hmac.compare_digest(_hash_secret(secret, m["key_salt"], m["cred"]), m["key_hash"]):
+        return "bad", None
+    if m["status"] == "menunggu":
+        return "pending", None
     if m["status"] != "aktif" or time.time() >= m["expires"]:
-        return None
-    return dict(m)
+        return "bad", None
+    return "ok", dict(m)
+
+
+def check_member(username, key):
+    """The member row if username + key/password are right and the account is active and unexpired, else None."""
+    verdict, m = authenticate(username, key)
+    return m if verdict == "ok" else None
 
 
 def get_member(username):
@@ -292,53 +381,287 @@ def member_logins(username, limit=200):
 
 ROLES = {"pelajar": "Pelajar", "pensyarah": "Pensyarah", "penyelidik": "Penyelidik / Pakar"}
 # Which views each kind of user may open (page url names). The owner (this computer) sees everything.
+# Teachers may also switch to the expert view ("mod pakar").
 ROLE_VIEWS = {"owner": ["pelajar", "pensyarah", "penyelidik"], "pelajar": ["pelajar"],
-              "pensyarah": ["pensyarah", "pelajar"], "penyelidik": ["penyelidik", "pelajar"], "guest": ["pelajar"]}
+              "pensyarah": ["pensyarah", "penyelidik", "pelajar"], "penyelidik": ["penyelidik", "pelajar"],
+              "guest": ["pelajar"]}
+PASSWORD_MIN = 8
+SIGNUPS_PER_IP, SIGNUP_WINDOW = 5, 3600      # at most 5 new accounts per IP address per hour
+GUEST_INQUIRY_TTL = 24 * 3600                 # guest / open-mode inquiries are deleted after 24 h at most
+SELF_SIGNUP_DAYS = 365                        # self-made accounts last a year (owner can shorten or revoke)
+_signups: list = []
+
+
+def _check_username(username):
+    username = str(username).strip().lower()
+    if not USERNAME_RE.match(username):
+        raise ValueError("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.")
+    return username
 
 
 def add_member(username, name, days, note="", role="pelajar", lecturer=""):
-    """Create an account. Returns the new key (shown once; only its hash is stored)."""
-    username = username.strip().lower()
-    if not USERNAME_RE.match(username):
-        raise ValueError("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.")
+    """Owner creates an account. Returns the new key (shown once; only its hash is stored)."""
+    username = _check_username(username)
     if role not in ROLES:
         raise ValueError("Peranan tidak sah.")
-    lecturer = lecturer if role == "pelajar" else ""
     key, salt = new_key(), secrets.token_hex(16)
     try:
         with _lock, closing(_db()) as con, con:
-            con.execute("INSERT INTO members(username, name, note, key_hash, key_salt, created, expires, role, lecturer) "
-                        "VALUES (?,?,?,?,?,?,?,?,?)",
+            con.execute("INSERT INTO members(username, name, note, key_hash, key_salt, created, expires, role, cred) "
+                        "VALUES (?,?,?,?,?,?,?,?,'key')",
                         (username, name.strip() or username, note.strip(), _hash_key(key, salt), salt, time.time(),
-                         time.time() + days * 86400, role, lecturer))
+                         time.time() + days * 86400, role))
     except sqlite3.IntegrityError:
         raise ValueError(f"Nama pengguna '{username}' sudah wujud.") from None
-    _log("ahli: dicipta", username, note=f"{ROLES[role]}, {days:g} hari" + (f", pensyarah {lecturer}" if lecturer else ""))
+    _log("ahli: dicipta", username, note=f"{ROLES[role]}, {days:g} hari")
     return key
 
 
-def set_member_role(username, role, lecturer=""):
-    lecturer = lecturer if role == "pelajar" else ""
+def sign_up(name, username, password, password2, role, class_code, ip):
+    """Self sign-up from the login screen. Students join with a class code and can log in at once;
+    teachers wait for the owner's approval. Returns the new member's status ('aktif' or 'menunggu')."""
+    username = _check_username(username)
+    name = str(name).strip()
+    if not name:
+        raise ValueError("Isi nama penuh anda.")
+    if len(password) < PASSWORD_MIN:
+        raise ValueError(f"Kata laluan sekurang-kurangnya {PASSWORD_MIN} aksara.")
+    if password != password2:
+        raise ValueError("Kedua-dua kata laluan tidak sama.")
+    if password.lower() == username:
+        raise ValueError("Kata laluan tidak boleh sama dengan nama pengguna.")
+    if role not in ("pelajar", "pensyarah"):
+        raise ValueError("Pilih Pelajar atau Pensyarah.")
+    cls = get_class(class_code) if role == "pelajar" else None
+    if role == "pelajar" and (not cls or not cls["active"]):
+        raise ValueError("Kod kelas tidak sah. Minta kod daripada pensyarah anda.")
+    now = time.time()
+    with _lock:
+        _signups[:] = [(t, a) for t, a in _signups if now - t < SIGNUP_WINDOW]
+        if sum(1 for _, a in _signups if a == ip) >= SIGNUPS_PER_IP:
+            raise ValueError("Terlalu banyak pendaftaran dari rangkaian ini. Cuba lagi dalam sejam.")
+        _signups.append((now, ip))
+    status = "aktif" if role == "pelajar" else "menunggu"
+    salt = secrets.token_hex(16)
+    try:
+        with _lock, closing(_db()) as con, con:
+            con.execute("INSERT INTO members(username, name, note, key_hash, key_salt, created, expires, status, role,"
+                        " cred) VALUES (?,?,?,?,?,?,?,?,?,'password')",
+                        (username, name, "daftar sendiri", _hash_secret(password, salt, "password"), salt, now,
+                         now + SELF_SIGNUP_DAYS * 86400, status, role))
+            if cls:
+                con.execute("INSERT INTO class_members(code, username, joined) VALUES (?,?,?)", (cls["code"], username, now))
+    except sqlite3.IntegrityError:
+        raise ValueError(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.") from None
+    _log("daftar: " + ("pelajar" if role == "pelajar" else "pensyarah (menunggu kelulusan)"), username, ip,
+         note=f"kelas {cls['code']}" if cls else "")
+    return status
+
+
+def approve_teacher(username, ok=True):
     with _lock, closing(_db()) as con, con:
-        con.execute("UPDATE members SET role=?, lecturer=? WHERE username=?", (role, lecturer, username))
-    _log("ahli: peranan ditukar", username, note=ROLES.get(role, role) + (f", pensyarah {lecturer}" if lecturer else ""))
+        if ok:
+            con.execute("UPDATE members SET status='aktif' WHERE username=? AND status='menunggu'", (username,))
+        else:
+            con.execute("DELETE FROM members WHERE username=? AND status='menunggu'", (username,))
+    _log("pensyarah: diluluskan" if ok else "pensyarah: ditolak", username)
+
+
+def change_password(username, old, new, new2):
+    if len(new) < PASSWORD_MIN:
+        raise ValueError(f"Kata laluan baharu sekurang-kurangnya {PASSWORD_MIN} aksara.")
+    if new != new2:
+        raise ValueError("Kedua-dua kata laluan baharu tidak sama.")
+    if authenticate(username, old)[0] != "ok":
+        raise ValueError("Kata laluan semasa salah.")
+    salt = secrets.token_hex(16)
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE members SET key_hash=?, key_salt=?, cred='password', key_version=key_version+1 "
+                    "WHERE username=?", (_hash_secret(new, salt, "password"), salt, username))
+    _log("ahli: tukar kata laluan", username)
+
+
+def set_member_role(username, role, lecturer=""):
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE members SET role=? WHERE username=?", (role, username))
+    _log("ahli: peranan ditukar", username, note=ROLES.get(role, role))
 
 
 def lecturers():
-    """{username: name} of lecturer members, for linking students to them."""
+    """{username: name} of active lecturer members."""
     with closing(_db()) as con:
         return {r["username"]: r["name"] for r in
-                con.execute("SELECT username, name FROM members WHERE role='pensyarah' ORDER BY name")}
+                con.execute("SELECT username, name FROM members WHERE role='pensyarah' AND status='aktif' ORDER BY name")}
+
+
+# ---- Classes (teachers make them; students join with the code) ------------------------------------
+
+def _new_class_code():
+    return "".join(secrets.choice(KEY_ALPHABET) for _ in range(6))      # e.g. K7QM2X
+
+
+def create_class(teacher, name):
+    name = str(name).strip()
+    if not name:
+        raise ValueError("Isi nama kelas, contohnya 'BM2 · Pantun Nasihat'.")
+    for _ in range(10):
+        code = _new_class_code()
+        try:
+            with _lock, closing(_db()) as con, con:
+                con.execute("INSERT INTO classes(code, name, teacher, created) VALUES (?,?,?,?)",
+                            (code, name, teacher, time.time()))
+            _log("kelas: dicipta", teacher or "pemilik", note=f"{name} ({code})")
+            return code
+        except sqlite3.IntegrityError:
+            continue
+    raise ValueError("Tidak dapat membuat kod kelas. Cuba lagi.")
+
+
+def get_class(code):
+    code = re.sub(r"[^A-Z0-9]", "", str(code).upper())
+    with closing(_db()) as con:
+        r = con.execute("SELECT * FROM classes WHERE code=?", (code,)).fetchone()
+    return dict(r) if r else None
+
+
+def classes_of(teacher=None):
+    """A teacher's classes with student counts (teacher=None: every class, for the owner)."""
+    q = ("SELECT c.*, COUNT(cm.username) AS n_students, m.name AS teacher_name FROM classes c "
+         "LEFT JOIN class_members cm ON cm.code = c.code LEFT JOIN members m ON m.username = c.teacher "
+         + ("WHERE c.teacher = ? " if teacher is not None else "") + "GROUP BY c.code ORDER BY c.created DESC")
+    with closing(_db()) as con:
+        return [dict(r) for r in con.execute(q, (teacher,) if teacher is not None else ())]
+
+
+def set_class_active(code, active):
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE classes SET active=? WHERE code=?", (1 if active else 0, code))
+    _log("kelas: dibuka" if active else "kelas: ditutup", note=code)
+
+
+def class_students(code):
+    with closing(_db()) as con:
+        return [dict(r) for r in con.execute(
+            "SELECT m.username, m.name, m.status, cm.joined, (SELECT MAX(time) FROM logins l WHERE l.username = "
+            "m.username) AS last_login FROM class_members cm JOIN members m ON m.username = cm.username "
+            "WHERE cm.code = ? ORDER BY m.name", (code,))]
+
+
+def student_classes(username):
+    with closing(_db()) as con:
+        return [dict(r) for r in con.execute(
+            "SELECT c.code, c.name, c.teacher, m.name AS teacher_name FROM class_members cm JOIN classes c "
+            "ON c.code = cm.code LEFT JOIN members m ON m.username = c.teacher WHERE cm.username = ? "
+            "ORDER BY cm.joined", (username,))]
+
+
+def join_class(username, code):
+    cls = get_class(code)
+    if not cls or not cls["active"]:
+        raise ValueError("Kod kelas tidak sah atau kelas sudah ditutup.")
+    with _lock, closing(_db()) as con, con:
+        con.execute("INSERT OR IGNORE INTO class_members(code, username, joined) VALUES (?,?,?)",
+                    (cls["code"], username, time.time()))
+    _log("kelas: pelajar menyertai", username, note=cls["code"])
+    return cls
+
+
+def remove_from_class(code, username):
+    with _lock, closing(_db()) as con, con:
+        con.execute("DELETE FROM class_members WHERE code=? AND username=?", (code, username))
+    _log("kelas: pelajar dikeluarkan", username, note=code)
+
+
+def teacher_has_student(teacher, student):
+    with closing(_db()) as con:
+        return bool(con.execute("SELECT 1 FROM class_members cm JOIN classes c ON c.code = cm.code "
+                                "WHERE c.teacher = ? AND cm.username = ?", (teacher, student)).fetchone())
+
+
+# ---- Inquiries ("Saya tidak setuju") ------------------------------------------------------------
+
+def _valid_guest_rounds(s):
+    rounds = []
+    if s["enabled"]:
+        rounds.append("tetamu:" + s["round"])
+    if s.get("open"):
+        rounds.append("terbuka:" + s.get("open_round", ""))
+    return rounds
+
+
+def _purge_inquiries(s=None):
+    """Guest and open-mode inquiries are temporary: gone when their round ends, and after 24 h at most."""
+    s = s or state()
+    rounds = _valid_guest_rounds(s)
+    marks = ",".join("?" * len(rounds)) or "''"
+    with _lock, closing(_db()) as con, con:
+        n = con.execute(f"DELETE FROM inquiries WHERE kind='tetamu' AND (expires < ? OR round NOT IN ({marks}))",
+                        (time.time(), *rounds)).rowcount
+    if n:
+        _log("pertanyaan tetamu dipadam (tamat)", note=str(n))
+
+
+def add_inquiry(user, lines, res, comment, class_code=""):
+    """Save a 'Saya tidak setuju' request. Students' go to their class teacher and are kept; guests' go to all
+    approved teachers and are deleted when the guest session (or open mode) ends."""
+    s, now = state(), time.time()
+    kind, rnd, expires = "pemilik", "", 0
+    if user["kind"] == "member":
+        kind = "pelajar"
+        if class_code and class_code not in {c["code"] for c in student_classes(user["username"])}:
+            class_code = ""
+    elif user["kind"] == "guest" and s["enabled"]:
+        kind, rnd, expires = "tetamu", "tetamu:" + s["round"], min(s["until"], now + GUEST_INQUIRY_TTL)
+    elif user["kind"] == "public" and s.get("open"):
+        kind, rnd, expires = "tetamu", "terbuka:" + s.get("open_round", ""), now + GUEST_INQUIRY_TTL
+    with _lock, closing(_db()) as con, con:
+        con.execute("INSERT INTO inquiries(time, kind, who, username, class_code, round, expires, line1, line2, line3,"
+                    " line4, comment, sound, meaning_pct, rules) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (now, kind, user["name"], user["username"], class_code if kind == "pelajar" else "", rnd, expires,
+                     *lines, comment, res["sound"], round(100 * res["p_avg"]), res["rules"]))
+    _log(f"pertanyaan: {kind}", user["username"] or user["name"], note=class_code)
+
+
+def inquiries_for(user):
+    """Inquiries this user may see: the owner sees all; an approved teacher sees their classes' students and
+    the current temporary guest inquiries; nobody else sees any."""
+    _purge_inquiries()
+    base = ("SELECT i.*, c.name AS class_name FROM inquiries i LEFT JOIN classes c ON c.code = i.class_code ")
+    with closing(_db()) as con:
+        if user["kind"] == "owner":
+            return pd.read_sql(base + "ORDER BY i.time DESC", con)
+        if user["role"] == "pensyarah":
+            return pd.read_sql(base + "WHERE (i.kind='pelajar' AND c.teacher = ?) OR i.kind='tetamu' "
+                               "ORDER BY i.time DESC", con, params=(user["username"],))
+        return pd.read_sql(base + "WHERE 0", con)          # nobody else: an empty table with the same columns
+
+
+def my_inquiries(username):
+    with closing(_db()) as con:
+        return pd.read_sql("SELECT time, line1, line3, comment, status, reply FROM inquiries WHERE username = ? "
+                           "ORDER BY time DESC", con, params=(username,))
+
+
+def resolve_inquiry(inquiry_id, user, reply):
+    if inquiry_id not in set(inquiries_for(user)["id"]):
+        raise ValueError("Anda tidak dibenarkan menyemak pertanyaan ini.")
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE inquiries SET status='selesai', handled_by=?, reply=? WHERE id=?",
+                    (user["username"] or "pemilik", reply.strip(), int(inquiry_id)))
+    _log("pertanyaan: selesai", user["username"] or "pemilik", note=str(inquiry_id))
 
 
 def current_user():
-    """Who is using this session: {'kind': owner|member|guest, 'role', 'username', 'name', 'lecturer'}."""
+    """Who is using this session: {'kind': owner|member|guest|public, 'role', 'username', 'name'}."""
     if not is_visitor():
         return {"kind": "owner", "role": "owner", "username": "", "name": "Pemilik", "lecturer": ""}
-    if st.session_state.get("share_kind") == "member":
+    kind = st.session_state.get("share_kind")
+    if kind == "member":
         m = get_member(st.session_state.get("share_user")) or {}
         return {"kind": "member", "role": m.get("role", "pelajar"), "username": m.get("username", ""),
-                "name": m.get("name", ""), "lecturer": m.get("lecturer", "")}
+                "name": m.get("name", ""), "lecturer": ""}
+    if kind == "public":
+        return {"kind": "public", "role": "guest", "username": "", "name": "Pelawat", "lecturer": ""}
     dev = _reg["devices"].get(st.session_state.get("share_did"), {})
     return {"kind": "guest", "role": "guest", "username": "", "name": dev.get("name", "Tetamu"), "lecturer": ""}
 
@@ -362,14 +685,36 @@ def sign_out():
     st.session_state["cz_signed_out"] = True        # don't sign straight back in from the old cookie
 
 
+def _want_login():
+    """Open-mode visitor pressed 'Log masuk / Daftar': show the login screen."""
+    _lock_out()
+    st.session_state["cz_want_login"] = True
+
+
 def user_bar():
     """Small 'name · role · Log keluar' row for visitors, shown above every page."""
     if not is_visitor():
         return
     u = current_user()
-    label = ROLES.get(u["role"], "Tetamu")
     with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_userbar"):
-        st.caption(f"👤 **{u['name']}** · {label}")
+        if u["kind"] == "public":
+            st.caption("👤 **Pelawat** · tanpa log masuk")
+            st.button("Log masuk / Daftar", icon=":material/login:", type="tertiary", on_click=_want_login,
+                      key="cz_login")
+            return
+        st.caption(f"👤 **{u['name']}** · {ROLES.get(u['role'], 'Tetamu')}")
+        if u["kind"] == "member":
+            with st.popover("Tukar kata laluan", icon=":material/password:", type="tertiary"):
+                with st.form("cz_pw", border=False, clear_on_submit=True):
+                    old = st.text_input("Kata laluan / kunci semasa", type="password")
+                    new = st.text_input("Kata laluan baharu", type="password")
+                    new2 = st.text_input("Ulang kata laluan baharu", type="password")
+                    if st.form_submit_button("Simpan", type="primary"):
+                        try:
+                            change_password(u["username"], old, new, new2)
+                            st.success("Kata laluan ditukar. Peranti lain akan dilog keluar.")
+                        except ValueError as e:
+                            st.error(str(e))
         st.button("Log keluar", icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
 
 
@@ -377,7 +722,7 @@ def reset_key(username, days=None):
     """New key (old key and every remembered browser stop working). Optionally set a new validity."""
     key, salt = new_key(), secrets.token_hex(16)
     with _lock, closing(_db()) as con, con:
-        con.execute("UPDATE members SET key_hash=?, key_salt=?, key_version=key_version+1, status='aktif'"
+        con.execute("UPDATE members SET key_hash=?, key_salt=?, cred='key', key_version=key_version+1, status='aktif'"
                     + (", expires=?" if days else "") + " WHERE username=?",
                     (_hash_key(key, salt), salt, *( [time.time() + days * 86400] if days else []), username))
     _log("ahli: kunci baharu", username)
@@ -583,6 +928,9 @@ def _session_ok(s, me):
         with _lock:
             _live[_session_id()] = {"user": m["username"], **me, "last": now}
         return "ok"
+    if kind == "public":            # open mode: fine while it stays on (same open round)
+        ok = s.get("open") and st.session_state.get("share_round") == "terbuka:" + s.get("open_round", "")
+        return "ok" if ok else "none"
     if not s["enabled"] or st.session_state.get("share_round") != s["round"]:
         return "none"
     reg = _registry(s["round"])
@@ -615,6 +963,7 @@ def _try_pass(s, me):
 def _lock_out():
     for k in [k for k in st.session_state if str(k).startswith("share_")]:
         st.session_state.pop(k, None)
+    st.session_state.pop("cz_home_done", None)      # next login: send teachers/experts to their page again
     with _lock:
         _live.pop(_session_id(), None)
 
@@ -654,6 +1003,14 @@ def gate():
         else:
             _try_pass(s, me)
             verdict = _session_ok(s, me)
+    if verdict == "none" and s.get("open") and not st.session_state.get("cz_want_login"):
+        # Open mode: straight to the student page, no login (teacher and expert pages still need one).
+        st.session_state.update(share_kind="public", share_round="terbuka:" + s["open_round"],
+                                share_exp=s["open_until"])
+        if st.session_state.get("cz_public_round") != s["open_round"]:
+            st.session_state["cz_public_round"] = s["open_round"]
+            _log("terbuka: pelawat masuk", "", me["ip"], me["country"], me["device"])
+        verdict = "ok"
     if verdict == "ok":
         st.session_state.pop("cz_signed_out", None)
         token = st.session_state.pop("share_cookie", None)
@@ -671,38 +1028,70 @@ def gate():
                     "Your access was ended by the owner or has expired.")
         st.stop()
 
-    if not s["members"] and not s["enabled"]:
+    if not s["members"] and not s["enabled"] and not s.get("open"):
         _screen("Perkongsian ditutup",
                 "Pemilik belum membuka akses ke Semak Pantun. Minta mereka hidupkan perkongsian.",
                 "Sharing is closed. Ask the owner to switch it on.")
         st.stop()
 
-    _screen("Log masuk ke Semak Pantun", "Ahli: guna nama pengguna dan kunci anda. Tetamu: minta kod 6 digit.",
-            "Members: use your username and key. Guests: ask the owner for the 6-digit code.")
+    _screen("Semak Pantun", "Log masuk dengan akaun anda, daftar akaun baharu, atau masuk dengan kod tetamu.",
+            "Log in, sign up (students need a class code from their teacher), or use a guest code.")
     with st.container(key="share_gate"):
-        tabs = (["👤 Ahli"] if s["members"] else []) + (["🎟️ Tetamu (kod)"] if s["enabled"] else [])
+        if s.get("open"):
+            st.button("← Teruskan tanpa log masuk", type="tertiary", key="cz_back_open",
+                      on_click=lambda: st.session_state.pop("cz_want_login", None))
+        tabs = (["👤 Log masuk", "📝 Daftar"] if s["members"] else []) + (["🎟️ Tetamu (kod)"] if s["enabled"] else [])
+        forms = {"👤 Log masuk": _member_form, "📝 Daftar": _signup_form, "🎟️ Tetamu (kod)": _guest_form}
         for tab, label in zip(st.tabs(tabs), tabs):
             with tab:
-                (_member_form if "Ahli" in label else _guest_form)(s, me)
+                forms[label](s, me)
     st.stop()
+
+
+def _signup_form(s, me):
+    with st.form("signup_form", border=False, clear_on_submit=False):
+        role = st.radio("Saya seorang", ["pelajar", "pensyarah"], horizontal=True,
+                        format_func={"pelajar": "🎒 Pelajar", "pensyarah": "🧑‍🏫 Pensyarah"}.get)
+        name = st.text_input("Nama penuh", max_chars=60)
+        user = st.text_input("Nama pengguna", max_chars=24, placeholder="huruf kecil, cth. aina.r")
+        pw = st.text_input("Kata laluan", type="password", placeholder=f"sekurang-kurangnya {PASSWORD_MIN} aksara")
+        pw2 = st.text_input("Ulang kata laluan", type="password")
+        code = st.text_input("Kod kelas (pelajar sahaja)", max_chars=8, placeholder="daripada pensyarah, cth. K7QM2X")
+        st.caption("Pensyarah: akaun anda aktif selepas diluluskan oleh pemilik. Pelajar: terus boleh log masuk.")
+        go = st.form_submit_button("Daftar", type="primary", icon=":material/person_add:", width="stretch")
+    if go:
+        try:
+            status = sign_up(name, user, pw, pw2, role, code, me["ip"])
+        except ValueError as e:
+            st.error(str(e), icon=":material/error:")
+            return
+        if status == "aktif":
+            st.success("Akaun dicipta! Sila log masuk di tab **Log masuk**.", icon=":material/check_circle:")
+        else:
+            st.info("Akaun pensyarah dicipta dan **menunggu kelulusan pemilik**. Cuba log masuk selepas diluluskan.",
+                    icon=":material/hourglass_top:")
 
 
 def _member_form(s, me):
     with st.form("member_form", border=False):
         user = st.text_input("Nama pengguna", max_chars=24, placeholder="nama pengguna")
-        key = st.text_input("Kunci", max_chars=14, type="password", placeholder="XXXX-XXXX-XXXX")
+        key = st.text_input("Kata laluan atau kunci", type="password")
         remember = st.checkbox("Ingat peranti ini (sehingga 24 jam)", value=True)
         go = st.form_submit_button("Log masuk", type="primary", icon=":material/login:", width="stretch")
     if go:
         if _fail_counts(me["ip"])[0] >= IP_FAILS:
             st.error("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.", icon=":material/timer:")
             return
-        m = check_member(user, key)
+        verdict, m = authenticate(user, key)
+        if verdict == "pending":
+            st.info("Akaun pensyarah anda masih **menunggu kelulusan** pemilik.", icon=":material/hourglass_top:")
+            return
         if not m:
             _fail(me["ip"], "member")
             _log("ahli: log masuk gagal", str(user).strip().lower()[:24], me["ip"], me["country"], me["device"])
-            st.error("Nama pengguna atau kunci salah, atau akaun sudah luput.", icon=":material/error:")
+            st.error("Nama pengguna atau kata laluan salah, atau akaun sudah luput.", icon=":material/error:")
             return
+        st.session_state.pop("cz_want_login", None)
         expires = min(time.time() + MEMBER_REMEMBER, m["expires"])
         _admit_member(m, me, expires, "kunci")
         if remember:
@@ -729,6 +1118,7 @@ def _guest_form(s, me):
         elif mine >= IP_FAILS:
             st.error("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.", icon=":material/timer:")
         elif verify(code):
+            st.session_state.pop("cz_want_login", None)
             expires = min(time.time() + GUEST_REMEMBER, s["until"])
             device_id = secrets.token_hex(6)
             _admit_guest(reg, s, device_id, name, me, expires, "tetamu: masuk")
@@ -756,7 +1146,7 @@ def owner_page():
     """'Kongsi' page (owner only): members, guest sharing with the live code, and the event log."""
     st.title("Kongsi Semak Pantun", anchor=False)
     st.caption(f"Alamat awam: {PUBLIC_URL} · jalankan Start Sharing.bat supaya alamat ini hidup")
-    tab_m, tab_g, tab_l = st.tabs(["👤 Ahli", "🎟️ Tetamu (kod)", "📜 Log"])
+    tab_m, tab_g, tab_l = st.tabs(["👤 Ahli", "🌐 Akses tanpa akaun", "📜 Log"])
     with tab_m:
         members_panel()
     with tab_g:
@@ -769,7 +1159,10 @@ DURATIONS = {"1 hari": 1, "3 hari": 3, "1 minggu": 7, "2 minggu": 14, "1 bulan":
 
 
 def _when(t):
-    return datetime.fromtimestamp(t).strftime("%d/%m %H:%M") if t else "—"
+    if not t:
+        return "—"
+    d = datetime.fromtimestamp(t)
+    return d.strftime("%d/%m %H:%M" if d.year == datetime.now().year else "%d/%m/%Y")
 
 
 def _ago(t):
@@ -779,9 +1172,9 @@ def _ago(t):
 
 
 def _key_message(username, key, expires):
-    return (f"Akses Semak Pantun\nLaman: {PUBLIC_URL}\nPilih 'Ahli', kemudian masukkan:\n"
-            f"Nama pengguna: {username}\nKunci: {key}\nSah hingga: {_when(expires)}\n"
-            "Jangan kongsi kunci ini dengan orang lain.")
+    return (f"Akses Semak Pantun\nLaman: {PUBLIC_URL}\nPilih 'Log masuk', kemudian masukkan:\n"
+            f"Nama pengguna: {username}\nKata laluan: {key}\nSah hingga: {_when(expires)}\n"
+            "Anda boleh tukar kata laluan selepas log masuk. Jangan kongsi dengan orang lain.")
 
 
 def _members_toggled():
@@ -796,6 +1189,20 @@ def members_panel():
     st.toggle("Benarkan ahli log masuk", key="owner_members_on", on_change=_members_toggled,
               help="Matikan untuk menutup akses semua ahli serta-merta (kunci mereka kekal).")
 
+    pending = [m for m in list_members() if m["status"] == "menunggu"]
+    if pending:
+        with st.container(border=True):
+            st.markdown(f"**🧑‍🏫 Pensyarah menunggu kelulusan ({len(pending)})**")
+            for m in pending:
+                with st.container(horizontal=True, vertical_alignment="center"):
+                    st.markdown(f"**{m['name']}** · `{m['username']}` · :gray[daftar {_when(m['created'])}]")
+                    st.button("Luluskan", key=f"ok_{m['username']}", icon=":material/check:", type="primary",
+                              on_click=approve_teacher, args=(m["username"], True))
+                    st.button("Tolak", key=f"no_{m['username']}", icon=":material/close:", type="tertiary",
+                              on_click=approve_teacher, args=(m["username"], False))
+            st.caption("Luluskan hanya orang yang anda kenal sebagai pensyarah: mereka boleh melihat pertanyaan "
+                       "pelajar kelas mereka dan pertanyaan tetamu.")
+
     shown = st.session_state.get("owner_new_key")
     if shown:
         with st.container(border=True):
@@ -806,26 +1213,21 @@ def members_panel():
                 st.session_state.pop("owner_new_key")
                 st.rerun()
 
-    with st.expander("➕ Tambah ahli", expanded=not list_members()):
+    with st.expander("➕ Cipta akaun (pensyarah, pakar atau pelajar)", expanded=False):
         with st.form("add_member", clear_on_submit=True):
             c1, c2 = st.columns(2)
             username = c1.text_input("Nama pengguna", placeholder="cth. drhasiah", max_chars=24)
             name = c2.text_input("Nama penuh", placeholder="cth. Dr. Hasiah")
-            c5, c6 = st.columns(2)
-            role = c5.selectbox("Peranan", list(ROLES), format_func=ROLES.get,
-                                help="Pelajar: halaman Pelajar sahaja. Pensyarah: Pensyarah + Pelajar. "
-                                     "Penyelidik / Pakar: Penyelidik + Pelajar.")
-            lect = lecturers()
-            lecturer = c6.selectbox("Pensyarah pelajar ini", [""] + list(lect),
-                                    format_func=lambda u: "— tiada —" if not u else f"{lect[u]} ({u})",
-                                    help="Untuk pelajar sahaja: permintaan 'Saya tidak setuju' mereka pergi kepada "
-                                         "pensyarah ini sahaja.")
+            role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get,
+                                help="Pelajar: halaman Pelajar. Pensyarah: Pensyarah + mod pakar + Pelajar (diluluskan "
+                                     "terus). Penyelidik / Pakar: Penyelidik + Pelajar. Pelajar biasanya mendaftar "
+                                     "sendiri dengan kod kelas.")
             c3, c4 = st.columns(2)
             dur = c3.selectbox("Sah selama", list(DURATIONS), index=2)
             note = c4.text_input("Catatan (pilihan)", placeholder="cth. penyelia CSC575")
             if st.form_submit_button("Cipta akaun dan kunci", type="primary", icon=":material/person_add:"):
                 try:
-                    key = add_member(username, name, DURATIONS[dur], note, role, lecturer)
+                    key = add_member(username, name, DURATIONS[dur], note, role)
                     m = get_member(username.strip().lower())
                     st.session_state["owner_new_key"] = {"user": m["username"], "key": key, "expires": m["expires"]}
                     st.rerun()
@@ -839,7 +1241,7 @@ def members_panel():
 def members_list():
     if st.session_state.pop("owner_need_rerun", False):
         st.rerun()                     # a new key was made: redraw the whole page so it shows at the top
-    members, now, lect = list_members(), time.time(), lecturers()
+    members, now = list_members(), time.time()
     with _lock:
         live = {k: v for k, v in _live.items() if now - v["last"] < ONLINE_FOR}
     online = {v["user"] for v in live.values()}
@@ -853,16 +1255,20 @@ def members_list():
     for m in members:
         u = m["username"]
         expired = now >= m["expires"]
-        status = ("⛔ Dibatalkan" if m["status"] != "aktif" else "⏳ Luput" if expired
-                  else "🟢 Dalam talian" if u in online else "✅ Aktif")
+        status = ("🕓 Menunggu kelulusan" if m["status"] == "menunggu" else "⛔ Dibatalkan" if m["status"] != "aktif"
+                  else "⏳ Luput" if expired else "🟢 Dalam talian" if u in online else "✅ Aktif")
         last = f"{_ago(m['last_login'])}" if m["last_login"] else "belum pernah"
         with st.container(border=True):
             role_txt = ROLES.get(m.get("role", "pelajar"), "Pelajar")
-            if m.get("role") == "pelajar" and m.get("lecturer"):
-                role_txt += f" → {lect.get(m['lecturer'], m['lecturer'])}"
+            if m.get("role") == "pelajar":
+                cls = ", ".join(c["code"] for c in student_classes(u))
+                role_txt += f" · kelas {cls}" if cls else " · tiada kelas"
             st.markdown(f"**{m['name']}** · `{u}` · :blue-badge[{role_txt}] · {status}  \n"
                         f":gray[Sah hingga {_when(m['expires'])} · {m['n_logins']} log masuk · terakhir {last}"
                         + (f" · {m['note']}" if m["note"] else "") + "]")
+            if m["status"] == "menunggu":
+                st.caption("Luluskan atau tolak di kotak **Pensyarah menunggu kelulusan** di atas.")
+                continue
             with st.container(horizontal=True):
                 st.button("+1 hari", key=f"x1_{u}", on_click=extend_member, args=(u, 1), type="tertiary")
                 st.button("+1 minggu", key=f"x7_{u}", on_click=extend_member, args=(u, 7), type="tertiary")
@@ -881,10 +1287,6 @@ def members_list():
                 with st.popover("Tukar peranan", icon=":material/badge:", type="tertiary"):
                     new_role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get, key=f"role_{u}",
                                             index=list(ROLES).index(m.get("role") or "pelajar"))
-                    opts = [""] + [x for x in lect if x != u]
-                    new_lect = st.selectbox("Pensyarah (untuk pelajar)", opts, key=f"lect_{u}",
-                                            index=opts.index(m["lecturer"]) if m.get("lecturer") in opts else 0,
-                                            format_func=lambda x: "— tiada —" if not x else f"{lect[x]} ({x})")
                     st.button("Simpan", key=f"saverole_{u}", type="primary", on_click=_save_role, args=(u,))
             if m["n_logins"]:
                 with st.expander(f"Sejarah log masuk ({m['n_logins']})"):
@@ -895,7 +1297,7 @@ def members_list():
 
 
 def _save_role(username):
-    set_member_role(username, st.session_state[f"role_{username}"], st.session_state[f"lect_{username}"])
+    set_member_role(username, st.session_state[f"role_{username}"])
 
 
 def _reset_and_show(username):
@@ -910,29 +1312,40 @@ def _count_logins(days):
 
 
 def guests_panel():
+    """One setting for access without an account: Tutup / Kod sahaja / Terbuka."""
     s = state()
+    mode = guest_mode(s)
     with st.container(border=True):
-        if s["enabled"]:
-            ends = datetime.fromtimestamp(s["until"])
-            st.success(f"Kod tetamu **HIDUP** sehingga {ends:%H:%M} ({ends:%d/%m}).", icon=":material/share:")
-            with st.container(horizontal=True):
-                if st.button("Matikan kod tetamu", type="primary", icon=":material/block:"):
-                    set_sharing(False)
-                    st.rerun()
-                if st.button("Keluarkan semua tetamu", icon=":material/group_remove:",
-                             help="Semua tetamu perlu memasukkan kod baharu. Kod tetamu kekal hidup."):
-                    kick_all()
-                    st.rerun()
-            st.caption(f"Tetamu diingati selama {GUEST_REMEMBER // 3600} jam. Mematikan atau mengeluarkan semua "
-                       f"mengunci tetamu dalam masa {HEARTBEAT} saat. Ahli tidak terjejas.")
+        st.markdown("**Akses tanpa akaun**: siapa boleh masuk tanpa log masuk? Halaman pensyarah dan pakar "
+                    "sentiasa perlukan akaun.")
+        st.markdown("""
+| | Siapa boleh masuk tanpa akaun |
+|---|---|
+| 🔒 **Tutup** | Tiada sesiapa: semua perlu log masuk, kod tetamu tidak berfungsi |
+| 🎟️ **Kod sahaja** | Hanya orang yang anda beri kod 30 saat (halaman Pelajar) |
+| 🌐 **Terbuka** | Sesiapa sahaja, terus ke halaman Pelajar tanpa kod |
+""")
+        if mode == "tutup":
+            st.info("Sekarang: **🔒 Tutup**. Hanya pengguna berakaun boleh masuk.", icon=":material/lock:")
         else:
-            st.info("Kod tetamu **MATI**. Hanya ahli boleh log masuk.", icon=":material/lock:")
-            hours = st.segmented_control("Berapa lama?", [0.5, 1, 2, 4, 8], default=1, required=True,
-                                         format_func=lambda h: "30 min" if h == 0.5 else f"{h:g} jam")
-            if st.button("Hidupkan kod tetamu", type="primary", icon=":material/share:"):
-                set_sharing(True, hours)
+            ends = datetime.fromtimestamp(s["until"] if mode == "kod" else s["open_until"])
+            st.success(f"Sekarang: **{GUEST_MODES[mode]}** sehingga {ends:%H:%M} ({ends:%d/%m}).",
+                       icon=":material/share:")
+        with st.form("guest_mode_form", border=False):
+            c1, c2 = st.columns(2)
+            new_mode = c1.segmented_control("Tukar kepada", list(GUEST_MODES), format_func=GUEST_MODES.get,
+                                            default=mode, required=True)
+            hours = c2.segmented_control("Selama (untuk Kod / Terbuka)", [0.5, 1, 2, 4, 8], default=1,
+                                         required=True, format_func=lambda h: "30 min" if h == 0.5 else f"{h:g} jam")
+            if st.form_submit_button("Simpan", type="primary", icon=":material/save:"):
+                set_guest_mode(new_mode, hours)
                 st.rerun()
-    if s["enabled"]:
+        st.caption(f"Setiap perubahan mengunci tetamu dan pelawat sedia ada dalam masa {HEARTBEAT} saat dan memadam "
+                   "pertanyaan sementara mereka. Ia kembali kepada Tutup sendiri apabila masa tamat.")
+        if mode == "kod":
+            st.button("Keluarkan semua tetamu", icon=":material/group_remove:", on_click=kick_all,
+                      help="Semua tetamu perlu memasukkan kod baharu. Mod Kod sahaja kekal.")
+    if mode == "kod":
         live_code()
         guest_devices()
 

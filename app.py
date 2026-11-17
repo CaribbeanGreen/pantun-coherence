@@ -36,11 +36,18 @@ VIEWS = {"pelajar": ("app_pages/pelajar.py", "Pelajar", ":material/school:"),
          "penyelidik": ("app_pages/penyelidik.py", "Penyelidik & Pakar", ":material/science:")}
 allowed = allowed_views()
 home = allowed[0] if current_user()["kind"] == "member" else "pelajar"
-pages = [st.Page(VIEWS[v][0], title=VIEWS[v][1], icon=VIEWS[v][2], default=(v == home))
-         for v in ["pelajar", "pensyarah", "penyelidik"] if v in allowed]
+# Pelajar is always the default page (served at "/"); a page marked default loses its own address, so making
+# Pensyarah the default gave "Page not found" at /pensyarah. Teachers and experts are sent home once instead.
+by_view = {v: st.Page(VIEWS[v][0], title=VIEWS[v][1], icon=VIEWS[v][2], default=(v == "pelajar"))
+           for v in ["pelajar", "pensyarah", "penyelidik"] if v in allowed}
+pages = list(by_view.values())
 if not is_visitor():   # only on this computer: members, guest code, devices and log
     pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
 nav = st.navigation(pages, position="top")
+if home != "pelajar" and not st.session_state.get("cz_home_done"):
+    st.session_state["cz_home_done"] = True
+    if nav.url_path in ("", "pelajar"):
+        st.switch_page(by_view[home])
 user_bar()             # visitors: "name · role · Log keluar"
 
 # On a phone Streamlit hides the top menu behind a small button, so visitors only saw the first view.

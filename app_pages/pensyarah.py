@@ -17,14 +17,15 @@ import streamlit as st
 from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
                           pantun_card, read_log, rhyme_text, save_decision, tour)
 from src.data_loader import load_pantun
-from src.share import current_user, require_view
+from src.share import (class_students, classes_of, create_class, current_user, inquiries_for, remove_from_class,
+                       require_view, reset_key, resolve_inquiry, set_class_active, teacher_has_student)
 
 require_view("pensyarah")      # lecturers (and the owner) only; students and guests never see this page
 ME = current_user()
 
 ACTIONS = {"setuju": "✔ Setuju", "ubah": "✎ Diubah", "pakar": "⚑ Dihantar kepada pakar"}
 TEMPLATE = "pelajar,baris1,baris2,baris3,baris4\nS001,Pisang emas dibawa belayar,Masak sebiji di atas peti,Hutang emas boleh dibayar,Hutang budi dibawa mati\n"
-MENU = ["📚 Kelas saya", "📝 Semakan", "📊 Laporan"]
+MENU = ["📚 Kelas saya", "🏫 Kod kelas & pelajar", "📝 Semakan", "📊 Laporan"]
 
 st.session_state.setdefault("p_class", [])         # one dict per submission
 st.session_state.setdefault("p_decisions", {})     # student -> (action, note, time)
@@ -291,20 +292,47 @@ def class_page():
 
 
 # ---- Semakan: requests from students and the decision log ----------------------------------------
+KIND_LABEL = {"pelajar": "🎒 Pelajar kelas", "tetamu": "🎟️ Tetamu (sementara)", "pemilik": "Pemilik",
+              "lama": "Lama"}
+
+
 def review_page():
-    st.subheader("Permintaan semakan daripada pelajar", anchor=False)
-    requests = read_log(FLAGS_CSV)
-    requests = requests[requests["view"] == "pelajar"] if not requests.empty else requests
-    if not requests.empty and ME["kind"] != "owner":
-        # A lecturer sees only complaints from their own students (privacy: student work is personal data).
-        requests = requests[requests["lecturer"] == ME["username"]]
-    if requests.empty:
-        st.info("Tiada permintaan. Pelajar boleh tekan **Saya tidak setuju** untuk meminta guru menyemak.",
+    st.subheader("Pertanyaan 'Saya tidak setuju'", anchor=False)
+    st.caption("Pelajar kelas anda: disimpan. Tetamu dan pelawat: dihantar kepada semua pensyarah dan dipadam "
+               "apabila akses tetamu tamat.")
+    inq = inquiries_for(ME)       # privacy: only your classes' students, plus current guests
+    if inq.empty:
+        st.info("Tiada pertanyaan. Pelajar boleh tekan **Saya tidak setuju** untuk meminta guru menyemak.",
                 icon=":material/inbox:")
     else:
-        st.dataframe(requests[["timestamp", "who", "line1", "line2", "line3", "line4", "comment",
-                               "sound", "meaning_pct", "rules"]].iloc[::-1], hide_index=True,
-                     alt="Pantun yang pelajar minta guru semak")
+        show_done = st.toggle("Tunjuk yang sudah dijawab", key="p_show_done")
+        view = inq if show_done else inq[inq["status"] != "selesai"]
+        table = pd.DataFrame({
+            "Masa": pd.to_datetime(view["time"], unit="s").dt.tz_localize("UTC").dt.tz_convert("Asia/Kuala_Lumpur")
+                      .dt.strftime("%d/%m %H:%M"),
+            "Daripada": view["who"], "Jenis": view["kind"].map(KIND_LABEL),
+            "Kelas": view["class_name"].fillna(""), "Baris 1": view["line1"], "Komen": view["comment"],
+            "Makna %": view["meaning_pct"], "Status": view["status"].map({"baru": "⏳ Baru", "selesai": "✅ Dijawab"}),
+        })
+        ev = st.dataframe(table, hide_index=True, on_select="rerun", selection_mode="single-row", key="p_inq_table",
+                          alt="Pertanyaan pelajar dan tetamu")
+        sel = ev.selection.rows if ev and ev.selection else []
+        if sel:
+            row = view.iloc[sel[0]]
+            with st.container(border=True):
+                pantun_card([row["line1"], row["line2"], row["line3"], row["line4"]])
+                st.markdown(f"**{row['who']}** · {KIND_LABEL.get(row['kind'], row['kind'])}"
+                            + (f" · {row['class_name']}" if row["class_name"] else "")
+                            + f"  \nBunyi {row['sound']:g}/10 · Makna {row['meaning_pct']}% · Peraturan {row['rules']}/4"
+                            + (f"  \n> {row['comment']}" if row["comment"] else ""))
+                if row["status"] == "selesai":
+                    st.success(f"Dijawab: {row['reply'] or '(tiada catatan)'}", icon=":material/check:")
+                else:
+                    with st.form(f"p_reply_{row['id']}", border=False):
+                        reply = st.text_area("Jawapan kepada pelajar", placeholder="cth. Pembayang anda mengiaskan ...")
+                        if st.form_submit_button("Tandakan dijawab", type="primary", icon=":material/check:"):
+                            resolve_inquiry(int(row["id"]), ME, reply)
+                            st.rerun()
     st.subheader("Log keputusan pensyarah", anchor=False)
     log = read_log(DECISIONS_CSV)
     if not log.empty and ME["kind"] != "owner":
@@ -338,7 +366,60 @@ def report_page():
     export_buttons(rows, dec, "report")
 
 
-{MENU[0]: class_page, MENU[1]: review_page, MENU[2]: report_page}[section]()
+# ---- Kod kelas & pelajar: classes with join codes, and their students -----------------------------
+def _temp_key(student):
+    if ME["kind"] == "owner" or teacher_has_student(ME["username"], student):
+        st.session_state["p_temp_key"] = (student, reset_key(student))
+
+
+def codes_page():
+    st.subheader("Kod kelas & pelajar", anchor=False)
+    st.caption("Cipta kelas, kemudian beri kodnya kepada pelajar. Mereka mendaftar di laman dengan kod itu, dan "
+               "pertanyaan mereka datang kepada anda.")
+    temp = st.session_state.get("p_temp_key")
+    if temp:
+        st.success(f"Kata laluan sementara untuk **{temp[0]}**: `{temp[1]}` (dipaparkan sekali sahaja). Pelajar boleh "
+                   "menukarnya selepas log masuk.", icon=":material/key:")
+        if st.button("Sudah diberi", key="p_temp_ok"):
+            st.session_state.pop("p_temp_key")
+            st.rerun()
+    with st.form("p_new_class", clear_on_submit=True, border=True):
+        c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+        name = c1.text_input("Nama kelas baharu", placeholder="cth. BM2 · Pantun Nasihat")
+        if c2.form_submit_button("Cipta kelas", type="primary", icon=":material/add:"):
+            try:
+                code = create_class(ME["username"], name)
+                st.success(f"Kelas dicipta. Kod: **{code}**")
+            except ValueError as e:
+                st.error(str(e))
+    classes = classes_of(None if ME["kind"] == "owner" else ME["username"])
+    if not classes:
+        st.info("Belum ada kelas.", icon=":material/school:")
+    for c in classes:
+        with st.container(border=True):
+            head, code_col = st.columns([3, 1], vertical_alignment="center")
+            head.markdown(f"**{c['name']}** · {c['n_students']} pelajar"
+                          + ("" if c["active"] else " · :red-badge[ditutup]")
+                          + (f"  \n:gray[Pensyarah: {c['teacher_name'] or 'pemilik'}]" if ME["kind"] == "owner" else ""))
+            code_col.code(c["code"], language=None)
+            st.session_state.setdefault(f"p_act_{c['code']}", bool(c["active"]))   # fixed key: no flip-flop
+            st.toggle("Pelajar baharu boleh menyertai dengan kod ini", key=f"p_act_{c['code']}",
+                      on_change=lambda k=c["code"]: set_class_active(k, st.session_state[f"p_act_{k}"]))
+            students = class_students(c["code"])
+            if students:
+                with st.expander(f"Pelajar ({len(students)})"):
+                    for s_ in students:
+                        with st.container(horizontal=True, vertical_alignment="center"):
+                            st.markdown(f"**{s_['name']}** · `{s_['username']}`")
+                            st.button("Kata laluan sementara", key=f"tk_{c['code']}_{s_['username']}",
+                                      icon=":material/key:", type="tertiary", on_click=_temp_key,
+                                      args=(s_["username"],), help="Jika pelajar lupa kata laluan.")
+                            st.button("Keluarkan dari kelas", key=f"rm_{c['code']}_{s_['username']}",
+                                      icon=":material/person_remove:", type="tertiary", on_click=remove_from_class,
+                                      args=(c["code"], s_["username"]))
+
+
+{MENU[0]: class_page, MENU[1]: codes_page, MENU[2]: review_page, MENU[3]: report_page}[section]()
 
 tour("pensyarah", [
     ("section[data-testid='stSidebar']", "Menu pensyarah 📚",
