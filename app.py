@@ -17,7 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.app_core import fonts, start_warmup
-from src.share import gate, is_visitor, owner_page
+from src.share import allowed_views, current_user, gate, is_visitor, owner_page, user_bar
 
 st.set_page_config(page_title="Semak Pantun · Cenderawasih", page_icon=":material/menu_book:",
                    layout="wide")
@@ -29,14 +29,19 @@ fonts()          # Lora for pantun text, Nunito for the student view
 start_warmup()   # load the models in the background so results come within 7 seconds (SRNF02)
 gate()           # visitors from the public address must type the current share code (src/share.py)
 
-pages = [
-    st.Page("app_pages/pelajar.py", title="Pelajar", icon=":material/school:", default=True),
-    st.Page("app_pages/pensyarah.py", title="Pensyarah", icon=":material/co_present:"),
-    st.Page("app_pages/penyelidik.py", title="Penyelidik & Pakar", icon=":material/science:"),
-]
-if not is_visitor():   # only on this computer: switch sharing on/off and see the code
+# Each person sees only the views their role allows (src/share.py ROLE_VIEWS), and lands on their own one:
+# students and guests on Pelajar, lecturers on Pensyarah, experts on Penyelidik. The owner sees all.
+VIEWS = {"pelajar": ("app_pages/pelajar.py", "Pelajar", ":material/school:"),
+         "pensyarah": ("app_pages/pensyarah.py", "Pensyarah", ":material/co_present:"),
+         "penyelidik": ("app_pages/penyelidik.py", "Penyelidik & Pakar", ":material/science:")}
+allowed = allowed_views()
+home = allowed[0] if current_user()["kind"] == "member" else "pelajar"
+pages = [st.Page(VIEWS[v][0], title=VIEWS[v][1], icon=VIEWS[v][2], default=(v == home))
+         for v in ["pelajar", "pensyarah", "penyelidik"] if v in allowed]
+if not is_visitor():   # only on this computer: members, guest code, devices and log
     pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
 nav = st.navigation(pages, position="top")
+user_bar()             # visitors: "name · role · Log keluar"
 
 # On a phone Streamlit hides the top menu behind a small button, so visitors only saw the first view.
 # This row of links shows the views on narrow screens only.

@@ -418,6 +418,36 @@ FROM logins ORDER BY time DESC LIMIT 20;
 ```
 **Back it up** by copying `share.db` while the app is closed.
 
+### 6A.7 Roles: who may open which view (privacy)
+Every member has a **role**, chosen when you create them (and changeable with **Tukar peranan**). The role,
+not the person, decides which views exist for them; the others are not even in their menu, and a direct link
+to them only shows "Halaman ini hanya untuk pengguna yang dibenarkan".
+
+| Who | Lands on | Can open |
+|---|---|---|
+| You on this PC | Pelajar | all three views + **Kongsi** |
+| Member · **Pelajar** | Pelajar | Pelajar |
+| Member · **Pensyarah** | **Pensyarah** | Pensyarah, Pelajar |
+| Member · **Penyelidik / Pakar** | **Penyelidik & Pakar** | Penyelidik, Pelajar |
+| Guest (30-second code) | Pelajar | Pelajar |
+
+Why: student complaints carry names and their own pantun, which the report treats as personal data (PDPA).
+So the data each view shows is filtered too:
+
+| Data | Who sees it |
+|---|---|
+| A student's "Saya tidak setuju" | **Their own lecturer** (linked when you create the student) and you. A guest's, or one from a student with no lecturer, only you. |
+| Lecturer decisions (Semakan → log) | The lecturer who made them, and you |
+| Expert queue | Experts see only cases a lecturer sent with **Hantar kepada pakar**; raw student complaints stay with the lecturer. You see both. |
+| Expert ratings | Saved with the expert's username |
+
+Every person signed in through the site sees their name and role at the top with **Log keluar**. Logging out
+also deletes the remembered pass in that browser. A lecturer who entered with the guest code can press
+**Log masuk dengan akaun anda** at the bottom of the student page to switch to their own account.
+
+The roles are enforced in two places: `app.py` builds the menu only from `allowed_views()`, and each page calls
+`require_view(...)` at the top, so typing a page's address doesn't get around the menu.
+
 ---
 
 ## Part 7 · Wrong-code limits
@@ -669,7 +699,8 @@ write the config file and run it (Part 8).
 - [ ] Check `https://pantun.aimanjamal.com` on your phone (mobile data, not Wi-Fi) shows the login screen
 
 ### Adding a member
-- [ ] **Tambah ahli**: username, full name, how long, note
+- [ ] **Tambah ahli**: username, full name, **role**, (students) **their lecturer**, how long, note
+- [ ] Create lecturers first, so students can be linked to them
 - [ ] Copy the message from the box (the key is shown only once) and send it privately
 - [ ] Press **Sudah disalin**
 - [ ] Later: their first login appears in **Sejarah log masuk**

@@ -243,10 +243,18 @@ def rhyme_text(res):
 # ---------------------------------------------------------------------------
 
 def append_row(path, columns, row):
-    """Append one row. A file from an older app version (different header) is kept as *_old_format.csv."""
+    """Append one row. If the file has an older header that is the start of `columns`, the new columns are added
+    (empty) to the old rows. A file with a different header is kept as *_old_format.csv."""
     if path.exists():
         with open(path, encoding="utf-8", newline="") as f:
-            header = next(csv.reader(f), [])
+            rows = list(csv.reader(f))
+        header = rows[0] if rows else []
+        if header != columns and header == columns[:len(header)] and header:
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(columns)
+                w.writerows(r + [""] * (len(columns) - len(r)) for r in rows[1:])
+            header = columns
         if header != columns:
             old = path.with_name(f"{path.stem}_old_format.csv")
             if not old.exists():
@@ -263,35 +271,35 @@ def now():
     return datetime.now().isoformat(timespec="seconds")
 
 
-def save_flag(view, lines, res, comment, who=""):
-    append_row(FLAGS_CSV, ["timestamp", "view", "who", "line1", "line2", "line3", "line4", "comment",
-                           "sound", "meaning_pct", "rules"],
-               [now(), view, who, *lines, comment, res["sound"], round(100 * res["p_avg"]), res["rules"]])
+LOG_COLUMNS = {
+    # student_user / lecturer: which member sent it and which lecturer may see it ("" = owner only)
+    FLAGS_CSV: ["timestamp", "view", "who", "line1", "line2", "line3", "line4", "comment", "sound", "meaning_pct",
+                "rules", "student_user", "lecturer"],
+    # instructor: the lecturer member who decided ("" = the owner on this computer)
+    DECISIONS_CSV: ["timestamp", "class", "student", "action", "note", "line1", "line2", "line3", "line4", "sound",
+                    "meaning_pct", "rules", "instructor"],
+    RATINGS_CSV: ["timestamp", "line1", "line2", "line3", "line4", "rating", "link_types", "agree_with_system",
+                  "comment", "system_lean", "meaning_pct", "sound", "rater"],
+}
 
 
-def save_decision(class_name, student, action, note, lines, res):
-    append_row(DECISIONS_CSV, ["timestamp", "class", "student", "action", "note",
-                               "line1", "line2", "line3", "line4", "sound", "meaning_pct", "rules"],
+def save_flag(view, lines, res, comment, who="", student_user="", lecturer=""):
+    append_row(FLAGS_CSV, LOG_COLUMNS[FLAGS_CSV],
+               [now(), view, who, *lines, comment, res["sound"], round(100 * res["p_avg"]), res["rules"],
+                student_user, lecturer])
+
+
+def save_decision(class_name, student, action, note, lines, res, instructor=""):
+    append_row(DECISIONS_CSV, LOG_COLUMNS[DECISIONS_CSV],
                [now(), class_name, student, action, note, *lines,
                 res["sound"] if res else "", round(100 * res["p_avg"]) if res else "",
-                res["rules"] if res else ""])
+                res["rules"] if res else "", instructor])
 
 
-def save_rating(lines, res, rating, link_types, agree, comment):
-    append_row(RATINGS_CSV, ["timestamp", "line1", "line2", "line3", "line4", "rating", "link_types",
-                             "agree_with_system", "comment", "system_lean", "meaning_pct", "sound"],
+def save_rating(lines, res, rating, link_types, agree, comment, rater=""):
+    append_row(RATINGS_CSV, LOG_COLUMNS[RATINGS_CSV],
                [now(), *lines, rating, ";".join(link_types), agree, comment, res["lean"],
-                round(100 * res["p_avg"]), res["sound"]])
-
-
-LOG_COLUMNS = {
-    FLAGS_CSV: ["timestamp", "view", "who", "line1", "line2", "line3", "line4", "comment", "sound", "meaning_pct",
-                "rules"],
-    DECISIONS_CSV: ["timestamp", "class", "student", "action", "note", "line1", "line2", "line3", "line4", "sound",
-                    "meaning_pct", "rules"],
-    RATINGS_CSV: ["timestamp", "line1", "line2", "line3", "line4", "rating", "link_types", "agree_with_system",
-                  "comment", "system_lean", "meaning_pct", "sound"],
-}
+                round(100 * res["p_avg"]), res["sound"], rater])
 
 
 def read_log(path):

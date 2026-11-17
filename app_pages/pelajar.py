@@ -13,6 +13,7 @@ import streamlit as st
 from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
                           check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
                           save_flag, tour)
+from src.share import current_user, sign_out
 
 KEYS = ["s_l1", "s_l2", "s_l3", "s_l4"]
 
@@ -140,12 +141,19 @@ def result_screen(res):
             f"Apabila skor **60% atau lebih**, ia betul kira-kira **{100 * test['accuracy_when_it_leans']:.0f}%** "
             "daripada masa itu.")
 
+    me = current_user()
     with st.popover("🙋 Saya tidak setuju — minta guru semak", width="stretch"):
         with st.form("s_flag", border=False):
-            who = st.text_input("Nama atau ID pelajar (pilihan)")
+            if me["kind"] == "member":                 # signed-in student: name and lecturer are known
+                who = me["name"]
+                st.caption(f"Dihantar sebagai **{who}**"
+                           + (" kepada pensyarah anda." if me["lecturer"] else "."))
+            else:
+                who = st.text_input("Nama atau ID pelajar (pilihan)")
             comment = st.text_area("Kenapa anda tidak setuju? (pilihan)")
             if st.form_submit_button("Hantar kepada guru", type="primary"):
-                save_flag("pelajar", res["lines"], res, comment, who)
+                # Only the student's own lecturer sees it (or just the owner, for guests / no lecturer).
+                save_flag("pelajar", res["lines"], res, comment, who, me["username"], me["lecturer"])
                 st.success("Terima kasih! Guru anda akan menyemak pantun ini.")
 
 
@@ -221,6 +229,13 @@ with middle.container(key="pelajar"):
         learn_screen()
     with tab_hist:
         history_screen()
+
+    # A lecturer or expert who came in with the guest code can switch to their own account here.
+    if current_user()["kind"] == "guest":
+        with st.container(horizontal=True, horizontal_alignment="center"):
+            st.caption("Pensyarah atau pakar?")
+            st.button("Log masuk dengan akaun anda", icon=":material/login:", type="tertiary",
+                      on_click=sign_out, key="s_staff_login")
 
 tour("pelajar", [
     (".st-key-s_lines", "Tulis pantun anda ✍️",

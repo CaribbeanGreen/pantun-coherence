@@ -16,6 +16,10 @@ from src.app_core import (DECISIONS_CSV, EXAMPLES, FLAGS_CSV, GOLD, LEAN_ENGLISH
                           RATINGS_CSV, RESULTS, TEAL, analyse, baselines, check_lines, help_button, load_calibration,
                           load_corpus, load_result_table, read_log, reference, ready_models, save_rating,
                           section_label, split_text, tour)
+from src.share import current_user, require_view
+
+require_view("penyelidik")     # researchers / experts (and the owner) only
+ME = current_user()
 
 LINK_TYPES = ["Word echo", "Sound echo", "Kiasan", "Same topic", "None"]
 st.session_state.setdefault("r_text", "\n".join(EXAMPLES["Pisang emas"]))
@@ -55,7 +59,7 @@ def expert_form(lines, res, key):
                 if rating is None or agree is None:
                     st.warning("Choose a rating and whether you agree.", icon=":material/rule:")
                 else:
-                    save_rating(lines, res, rating, types, agree, comment)
+                    save_rating(lines, res, rating, types, agree, comment, ME["username"])
                     st.success("Rating saved.", icon=":material/check:")
 
 
@@ -127,7 +131,9 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
 
 flags, decisions = read_log(FLAGS_CSV), read_log(DECISIONS_CSV)
 queue = []
-if not flags.empty:
+# Experts see the cases lecturers sent on ("Hantar kepada pakar"). Raw student complaints, which carry
+# student names, stay with their lecturer; only the owner sees those here too.
+if not flags.empty and ME["kind"] == "owner":
     queue += [{"from": f"student ({r.who or 'anonymous'})", "time": r.timestamp,
                "lines": [r.line1, r.line2, r.line3, r.line4], "note": r.comment} for r in flags.itertuples()]
 if not decisions.empty:

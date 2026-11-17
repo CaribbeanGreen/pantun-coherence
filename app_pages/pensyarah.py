@@ -17,6 +17,10 @@ import streamlit as st
 from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
                           pantun_card, read_log, rhyme_text, save_decision, tour)
 from src.data_loader import load_pantun
+from src.share import current_user, require_view
+
+require_view("pensyarah")      # lecturers (and the owner) only; students and guests never see this page
+ME = current_user()
 
 ACTIONS = {"setuju": "✔ Setuju", "ubah": "✎ Diubah", "pakar": "⚑ Dihantar kepada pakar"}
 TEMPLATE = "pelajar,baris1,baris2,baris3,baris4\nS001,Pisang emas dibawa belayar,Masak sebiji di atas peti,Hutang emas boleh dibayar,Hutang budi dibawa mati\n"
@@ -265,7 +269,7 @@ def class_page():
             text = (extra + " " + note).strip()
             dec[row["student"]] = (action, text, datetime.now())
             save_decision(st.session_state["p_class_name"], row["student"], action, text,
-                          row["lines"] if not row["problems"] else row["raw"], row["res"])
+                          row["lines"] if not row["problems"] else row["raw"], row["res"], ME["username"])
 
         if st.button("Setuju dengan sistem", type="primary", icon=":material/check:", width="stretch",
                      disabled=bool(row["problems"])):
@@ -291,6 +295,9 @@ def review_page():
     st.subheader("Permintaan semakan daripada pelajar", anchor=False)
     requests = read_log(FLAGS_CSV)
     requests = requests[requests["view"] == "pelajar"] if not requests.empty else requests
+    if not requests.empty and ME["kind"] != "owner":
+        # A lecturer sees only complaints from their own students (privacy: student work is personal data).
+        requests = requests[requests["lecturer"] == ME["username"]]
     if requests.empty:
         st.info("Tiada permintaan. Pelajar boleh tekan **Saya tidak setuju** untuk meminta guru menyemak.",
                 icon=":material/inbox:")
@@ -300,6 +307,8 @@ def review_page():
                      alt="Pantun yang pelajar minta guru semak")
     st.subheader("Log keputusan pensyarah", anchor=False)
     log = read_log(DECISIONS_CSV)
+    if not log.empty and ME["kind"] != "owner":
+        log = log[log["instructor"] == ME["username"]]          # only this lecturer's own decisions
     if log.empty:
         st.info("Belum ada keputusan direkod.", icon=":material/history:")
     else:

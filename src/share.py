@@ -129,6 +129,11 @@ def _init_db():
     with _lock, closing(_db()) as con, con:
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
+        cols = {r["name"] for r in con.execute("PRAGMA table_info(members)")}
+        if "role" not in cols:          # added later: which views a member may open
+            con.execute("ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT 'pelajar'")
+        if "lecturer" not in cols:      # for students: the lecturer who receives their complaints
+            con.execute("ALTER TABLE members ADD COLUMN lecturer TEXT NOT NULL DEFAULT ''")
         if OLD_LOG.exists() and not con.execute("SELECT 1 FROM events LIMIT 1").fetchone():
             with open(OLD_LOG, encoding="utf-8") as f:
                 for r in csv.DictReader(f):
@@ -285,21 +290,87 @@ def member_logins(username, limit=200):
                            "ORDER BY time DESC LIMIT ?", con, params=(username, limit))
 
 
-def add_member(username, name, days, note=""):
+ROLES = {"pelajar": "Pelajar", "pensyarah": "Pensyarah", "penyelidik": "Penyelidik / Pakar"}
+# Which views each kind of user may open (page url names). The owner (this computer) sees everything.
+ROLE_VIEWS = {"owner": ["pelajar", "pensyarah", "penyelidik"], "pelajar": ["pelajar"],
+              "pensyarah": ["pensyarah", "pelajar"], "penyelidik": ["penyelidik", "pelajar"], "guest": ["pelajar"]}
+
+
+def add_member(username, name, days, note="", role="pelajar", lecturer=""):
     """Create an account. Returns the new key (shown once; only its hash is stored)."""
     username = username.strip().lower()
     if not USERNAME_RE.match(username):
         raise ValueError("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.")
+    if role not in ROLES:
+        raise ValueError("Peranan tidak sah.")
+    lecturer = lecturer if role == "pelajar" else ""
     key, salt = new_key(), secrets.token_hex(16)
     try:
         with _lock, closing(_db()) as con, con:
-            con.execute("INSERT INTO members(username, name, note, key_hash, key_salt, created, expires) "
-                        "VALUES (?,?,?,?,?,?,?)", (username, name.strip() or username, note.strip(),
-                                                   _hash_key(key, salt), salt, time.time(), time.time() + days * 86400))
+            con.execute("INSERT INTO members(username, name, note, key_hash, key_salt, created, expires, role, lecturer) "
+                        "VALUES (?,?,?,?,?,?,?,?,?)",
+                        (username, name.strip() or username, note.strip(), _hash_key(key, salt), salt, time.time(),
+                         time.time() + days * 86400, role, lecturer))
     except sqlite3.IntegrityError:
         raise ValueError(f"Nama pengguna '{username}' sudah wujud.") from None
-    _log("ahli: dicipta", username, note=f"{days:g} hari")
+    _log("ahli: dicipta", username, note=f"{ROLES[role]}, {days:g} hari" + (f", pensyarah {lecturer}" if lecturer else ""))
     return key
+
+
+def set_member_role(username, role, lecturer=""):
+    lecturer = lecturer if role == "pelajar" else ""
+    with _lock, closing(_db()) as con, con:
+        con.execute("UPDATE members SET role=?, lecturer=? WHERE username=?", (role, lecturer, username))
+    _log("ahli: peranan ditukar", username, note=ROLES.get(role, role) + (f", pensyarah {lecturer}" if lecturer else ""))
+
+
+def lecturers():
+    """{username: name} of lecturer members, for linking students to them."""
+    with closing(_db()) as con:
+        return {r["username"]: r["name"] for r in
+                con.execute("SELECT username, name FROM members WHERE role='pensyarah' ORDER BY name")}
+
+
+def current_user():
+    """Who is using this session: {'kind': owner|member|guest, 'role', 'username', 'name', 'lecturer'}."""
+    if not is_visitor():
+        return {"kind": "owner", "role": "owner", "username": "", "name": "Pemilik", "lecturer": ""}
+    if st.session_state.get("share_kind") == "member":
+        m = get_member(st.session_state.get("share_user")) or {}
+        return {"kind": "member", "role": m.get("role", "pelajar"), "username": m.get("username", ""),
+                "name": m.get("name", ""), "lecturer": m.get("lecturer", "")}
+    dev = _reg["devices"].get(st.session_state.get("share_did"), {})
+    return {"kind": "guest", "role": "guest", "username": "", "name": dev.get("name", "Tetamu"), "lecturer": ""}
+
+
+def allowed_views():
+    return ROLE_VIEWS.get(current_user()["role"], ["pelajar"])
+
+
+def require_view(view):
+    """Stop a page that this user may not open (the menu already hides it; this also guards direct links)."""
+    if view not in allowed_views():
+        st.warning("Halaman ini hanya untuk pengguna yang dibenarkan.", icon=":material/lock:")
+        st.stop()
+
+
+def sign_out():
+    """Visitor's 'Log keluar': forget this session and this browser's pass, then show the login screen."""
+    who = current_user()
+    _log("log keluar", who["username"] or who["name"])
+    _lock_out()
+    st.session_state["cz_signed_out"] = True        # don't sign straight back in from the old cookie
+
+
+def user_bar():
+    """Small 'name · role · Log keluar' row for visitors, shown above every page."""
+    if not is_visitor():
+        return
+    u = current_user()
+    label = ROLES.get(u["role"], "Tetamu")
+    with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_userbar"):
+        st.caption(f"👤 **{u['name']}** · {label}")
+        st.button("Log keluar", icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
 
 
 def reset_key(username, days=None):
@@ -578,9 +649,13 @@ def gate():
     verdict = _session_ok(s, me)
     if verdict == "none":
         _lock_out()
-        _try_pass(s, me)
-        verdict = _session_ok(s, me)
+        if st.session_state.get("cz_signed_out"):   # just pressed "Log keluar": forget the pass in this browser
+            _clear_cookie()
+        else:
+            _try_pass(s, me)
+            verdict = _session_ok(s, me)
     if verdict == "ok":
+        st.session_state.pop("cz_signed_out", None)
         token = st.session_state.pop("share_cookie", None)
         if token:                                    # first run after a correct login: remember this browser
             _set_cookie(token, st.session_state["share_exp"] - time.time())
@@ -736,12 +811,21 @@ def members_panel():
             c1, c2 = st.columns(2)
             username = c1.text_input("Nama pengguna", placeholder="cth. drhasiah", max_chars=24)
             name = c2.text_input("Nama penuh", placeholder="cth. Dr. Hasiah")
+            c5, c6 = st.columns(2)
+            role = c5.selectbox("Peranan", list(ROLES), format_func=ROLES.get,
+                                help="Pelajar: halaman Pelajar sahaja. Pensyarah: Pensyarah + Pelajar. "
+                                     "Penyelidik / Pakar: Penyelidik + Pelajar.")
+            lect = lecturers()
+            lecturer = c6.selectbox("Pensyarah pelajar ini", [""] + list(lect),
+                                    format_func=lambda u: "— tiada —" if not u else f"{lect[u]} ({u})",
+                                    help="Untuk pelajar sahaja: permintaan 'Saya tidak setuju' mereka pergi kepada "
+                                         "pensyarah ini sahaja.")
             c3, c4 = st.columns(2)
             dur = c3.selectbox("Sah selama", list(DURATIONS), index=2)
             note = c4.text_input("Catatan (pilihan)", placeholder="cth. penyelia CSC575")
             if st.form_submit_button("Cipta akaun dan kunci", type="primary", icon=":material/person_add:"):
                 try:
-                    key = add_member(username, name, DURATIONS[dur], note)
+                    key = add_member(username, name, DURATIONS[dur], note, role, lecturer)
                     m = get_member(username.strip().lower())
                     st.session_state["owner_new_key"] = {"user": m["username"], "key": key, "expires": m["expires"]}
                     st.rerun()
@@ -755,7 +839,7 @@ def members_panel():
 def members_list():
     if st.session_state.pop("owner_need_rerun", False):
         st.rerun()                     # a new key was made: redraw the whole page so it shows at the top
-    members, now = list_members(), time.time()
+    members, now, lect = list_members(), time.time(), lecturers()
     with _lock:
         live = {k: v for k, v in _live.items() if now - v["last"] < ONLINE_FOR}
     online = {v["user"] for v in live.values()}
@@ -773,7 +857,10 @@ def members_list():
                   else "🟢 Dalam talian" if u in online else "✅ Aktif")
         last = f"{_ago(m['last_login'])}" if m["last_login"] else "belum pernah"
         with st.container(border=True):
-            st.markdown(f"**{m['name']}** · `{u}` · {status}  \n"
+            role_txt = ROLES.get(m.get("role", "pelajar"), "Pelajar")
+            if m.get("role") == "pelajar" and m.get("lecturer"):
+                role_txt += f" → {lect.get(m['lecturer'], m['lecturer'])}"
+            st.markdown(f"**{m['name']}** · `{u}` · :blue-badge[{role_txt}] · {status}  \n"
                         f":gray[Sah hingga {_when(m['expires'])} · {m['n_logins']} log masuk · terakhir {last}"
                         + (f" · {m['note']}" if m["note"] else "") + "]")
             with st.container(horizontal=True):
@@ -791,12 +878,24 @@ def members_list():
                               on_click=set_member_status, args=(u, True))
                 st.button("Padam", key=f"del_{u}", icon=":material/delete:", type="tertiary",
                           on_click=delete_member, args=(u,), help="Akaun dipadam; sejarah log masuk disimpan.")
+                with st.popover("Tukar peranan", icon=":material/badge:", type="tertiary"):
+                    new_role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get, key=f"role_{u}",
+                                            index=list(ROLES).index(m.get("role") or "pelajar"))
+                    opts = [""] + [x for x in lect if x != u]
+                    new_lect = st.selectbox("Pensyarah (untuk pelajar)", opts, key=f"lect_{u}",
+                                            index=opts.index(m["lecturer"]) if m.get("lecturer") in opts else 0,
+                                            format_func=lambda x: "— tiada —" if not x else f"{lect[x]} ({x})")
+                    st.button("Simpan", key=f"saverole_{u}", type="primary", on_click=_save_role, args=(u,))
             if m["n_logins"]:
                 with st.expander(f"Sejarah log masuk ({m['n_logins']})"):
                     h = member_logins(u)
                     h["time"] = h["time"].map(_when)
                     st.dataframe(h.rename(columns={"time": "masa", "country": "negara", "device": "peranti",
                                                    "how": "cara"}), hide_index=True)
+
+
+def _save_role(username):
+    set_member_role(username, st.session_state[f"role_{username}"], st.session_state[f"lect_{username}"])
 
 
 def _reset_and_show(username):
