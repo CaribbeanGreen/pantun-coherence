@@ -95,3 +95,10 @@ to `results/expert_review_flags.csv`.
   `author_collection` (written by the named author) or `editorial_compilation` (DBP)
 - `label`: `real` for an authentic pantun, `mismatch` for a deliberately mismatched test pantun
 - Every row must have a `source`. Do not add AI-generated pantun.
+
+## Illustrations (いらすとや)
+The friendly pictures (login key, pantun nature images, cheering buddy, sign-up celebration) are by Irasutoya
+(https://www.irasutoya.com/), used free for this non-commercial course project. Their terms forbid
+redistributing the images, and this repository is public, so the files stay on this computer in
+`assets/irasutoya/` (git-ignored). `assets/irasutoya/CREDITS.md` lists each file and its page so they can be
+downloaded again. Without the folder the app still works, just without pictures. Code: `src/illus.py`.

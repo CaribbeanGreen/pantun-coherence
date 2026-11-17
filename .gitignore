@@ -23,3 +23,7 @@ results/
 notebooks/*.ipynb
 # Third-party data without a stated licence (mesolitica/peribahasa-instructions): local use only.
 data/external/
+
+# Irasutoya illustrations: free to use, but not to redistribute (public repo) -> kept on this computer only
+assets/irasutoya/*
+!assets/irasutoya/CREDITS.md

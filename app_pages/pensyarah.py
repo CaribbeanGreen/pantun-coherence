@@ -16,6 +16,7 @@ import streamlit as st
 
 from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
                           pantun_card, read_log, rhyme_text, save_decision, tour)
+from src import illus
 from src.data_loader import load_pantun
 from src.share import (class_students, classes_of, create_class, current_user, inquiries_for, remove_from_class,
                        require_view, reset_key, resolve_inquiry, set_class_active, teacher_has_student)
@@ -302,6 +303,7 @@ def review_page():
                "apabila akses tetamu tamat.")
     inq = inquiries_for(ME)       # privacy: only your classes' students, plus current guests
     if inq.empty:
+        illus.show("box_kara_hako", 90, "float")
         st.info("Tiada pertanyaan. Pelajar boleh tekan **Saya tidak setuju** untuk meminta guru menyemak.",
                 icon=":material/inbox:")
     else:
@@ -373,7 +375,9 @@ def _temp_key(student):
 
 
 def codes_page():
-    st.subheader("Kod kelas & pelajar", anchor=False)
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.html(illus.img("job_senesi", 64, "", "pop") or "<span></span>", width="content")
+        st.subheader("Kod kelas & pelajar", anchor=False)
     st.caption("Cipta kelas, kemudian beri kodnya kepada pelajar. Mereka mendaftar di laman dengan kod itu, dan "
                "pertanyaan mereka datang kepada anda.")
     temp = st.session_state.get("p_temp_key")
@@ -394,6 +398,7 @@ def codes_page():
                 st.error(str(e))
     classes = classes_of(None if ME["kind"] == "owner" else ME["username"])
     if not classes:
+        illus.show("box_kara_hako", 90, "float")
         st.info("Belum ada kelas.", icon=":material/school:")
     for c in classes:
         with st.container(border=True):

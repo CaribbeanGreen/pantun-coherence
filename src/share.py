@@ -23,6 +23,7 @@ import base64
 import csv
 import hashlib
 import hmac
+import html
 import io
 import json
 import os
@@ -41,6 +42,7 @@ import pandas as pd
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
+from src import illus
 from src.data_loader import PROJECT_ROOT
 
 SHARE_DIR = Path(os.environ.get("PANTUN_SHARE_DIR") or PROJECT_ROOT / "results")
@@ -984,8 +986,10 @@ _GATE_CSS = """<style>
 </style>"""
 
 
-def _screen(title, malay, english):
-    st.html(_GATE_CSS + f"""<div class="cz-gate"><div class="logo"></div><h1>{title}</h1><p>{malay}</p>
+def _screen(title, malay, english, pic="", anim="wiggle"):
+    """Centre screen for visitors. `pic` is an Irasutoya picture (src/illus.py); without it, the gold logo dot."""
+    art = illus.img(pic, 120, "margin:0 auto 10px", anim) if pic else ""
+    st.html(_GATE_CSS + f"""<div class="cz-gate">{art or '<div class="logo"></div>'}<h1>{title}</h1><p>{malay}</p>
         <p style="font-size:.92rem;color:#6b7478">{english}</p></div>""")
 
 
@@ -1022,20 +1026,22 @@ def gate():
         _lock_out()
         _clear_cookie()
         if verdict == "blocked":
-            _screen("Akses disekat", "Pemilik telah menyekat peranti ini.", "The owner has blocked this device.")
+            _screen("Akses disekat", "Pemilik telah menyekat peranti ini.", "The owner has blocked this device.",
+                    "box_kara_hako", "pop")
         else:
             _screen("Akses ditarik balik", "Akses anda telah ditamatkan oleh pemilik atau telah luput.",
-                    "Your access was ended by the owner or has expired.")
+                    "Your access was ended by the owner or has expired.", "box_kara_hako", "pop")
         st.stop()
 
     if not s["members"] and not s["enabled"] and not s.get("open"):
         _screen("Perkongsian ditutup",
                 "Pemilik belum membuka akses ke Semak Pantun. Minta mereka hidupkan perkongsian.",
-                "Sharing is closed. Ask the owner to switch it on.")
+                "Sharing is closed. Ask the owner to switch it on.", "yashinoki", "float")
         st.stop()
 
     _screen("Semak Pantun", "Log masuk dengan akaun anda, daftar akaun baharu, atau masuk dengan kod tetamu.",
-            "Log in, sign up (students need a class code from their teacher), or use a guest code.")
+            "Log in, sign up (students need a class code from their teacher), or use a guest code.",
+            "key", "wiggle")
     with st.container(key="share_gate"):
         if s.get("open"):
             st.button("← Teruskan tanpa log masuk", type="tertiary", key="cz_back_open",
@@ -1049,6 +1055,7 @@ def gate():
 
 
 def _signup_form(s, me):
+    illus.show("study_woman_normal", 110, "float")
     with st.form("signup_form", border=False, clear_on_submit=False):
         role = st.radio("Saya seorang", ["pelajar", "pensyarah"], horizontal=True,
                         format_func={"pelajar": "🎒 Pelajar", "pensyarah": "🧑‍🏫 Pensyarah"}.get)
@@ -1065,9 +1072,14 @@ def _signup_form(s, me):
         except ValueError as e:
             st.error(str(e), icon=":material/error:")
             return
+        first = html.escape(str(name).strip().split(" ")[0]) or "anda"
         if status == "aktif":
+            illus.celebrate("Tahniah! 🎉", f"Selamat datang ke Semak Pantun, <b>{first}</b>! Akaun pelajar anda sudah "
+                                         "sedia. Log masuk dan mula menyemak pantun.")
             st.success("Akaun dicipta! Sila log masuk di tab **Log masuk**.", icon=":material/check_circle:")
         else:
+            illus.celebrate("Tahniah! 🎉", f"Terima kasih, <b>{first}</b>! Akaun pensyarah anda sudah didaftarkan dan "
+                                         "akan aktif sebaik sahaja diluluskan oleh pemilik.", "job_senesi")
             st.info("Akaun pensyarah dicipta dan **menunggu kelulusan pemilik**. Cuba log masuk selepas diluluskan.",
                     icon=":material/hourglass_top:")
 

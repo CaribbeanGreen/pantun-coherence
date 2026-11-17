@@ -370,6 +370,51 @@ UX_CSS = """<style>
   background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: cz-shine 2.2s linear infinite; font-weight: 700; }
 
+/* Animated illustrations (Irasutoya pictures, src/illus.py): pop in, bounce, wiggle, float */
+@keyframes cz-popin { 0% { opacity: 0; transform: scale(.3); } 70% { opacity: 1; transform: scale(1.08); }
+                      100% { transform: scale(1); } }
+@keyframes cz-bounce { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-16px); }
+                       60% { transform: translateY(-16px) rotate(-3deg); } }
+@keyframes cz-wiggle { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(7deg); }
+                       60% { transform: rotate(-4deg); } 80% { transform: rotate(2deg); } }
+@keyframes cz-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+.cz-anim-pop { animation: cz-popin .6s cubic-bezier(.2, 1.4, .4, 1) both; }
+.cz-anim-cheer { animation: cz-popin .6s cubic-bezier(.2, 1.4, .4, 1) both, cz-bounce 1s ease-in-out .6s 3; }
+.cz-anim-wiggle { animation: cz-wiggle 2.6s ease-in-out infinite; transform-origin: 50% 85%; }
+.cz-anim-float { animation: cz-float 3.2s ease-in-out infinite; }
+.cz-illus { display: block; margin: 0 auto; filter: drop-shadow(0 6px 10px rgba(31, 42, 46, .12)); }
+
+/* Sign-up celebration: character with a party hat, confetti, then it fades away by itself */
+@keyframes cz-cel-out { to { opacity: 0; visibility: hidden; } }
+.cz-celebrate { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center;
+  background: rgba(12, 82, 92, .38); pointer-events: none; animation: cz-cel-out .6s ease 5.5s forwards; }
+.cz-celebrate .cz-confetti { top: 4%; }     /* falling confetti starts near the top, not over the character's face */
+.cz-cel-card { background: #FFFBF1; border-radius: 26px; padding: 22px 30px 22px; text-align: center; max-width: 380px;
+  border-top: 8px solid #DEB251; box-shadow: 0 24px 60px rgba(0, 0, 0, .28); font-family: 'Nunito', sans-serif;
+  animation: cz-popin .65s cubic-bezier(.2, 1.4, .4, 1) both; }
+.cz-cel-card h2 { margin: 6px 0 4px; padding: 0; font-size: 1.9rem; font-weight: 900; color: #0C525C; }
+.cz-cel-card p { margin: 0; color: #45525a; font-size: 1.02rem; line-height: 1.5; }
+.cz-cel-char { position: relative; width: 150px; margin: 34px auto 8px;
+  animation: cz-popin .6s cubic-bezier(.2, 1.4, .4, 1) .15s both, cz-bounce 1s ease-in-out .8s 4; }
+/* Party poppers on both sides: they jolt, then blast confetti and streamers out of their mouths */
+@keyframes cz-popper-l { 0% { transform: rotate(30deg); } 35% { transform: rotate(16deg) scale(1.22); }
+                         100% { transform: rotate(30deg) scale(1); } }
+@keyframes cz-popper-r { 0% { transform: scaleX(-1) rotate(30deg); } 35% { transform: scaleX(-1) rotate(16deg) scale(1.22); }
+                         100% { transform: scaleX(-1) rotate(30deg) scale(1); } }
+@keyframes cz-burst { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 75% { opacity: 1; }
+                      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
+.cz-popper { position: absolute; bottom: 4px; width: 42px; height: 60px; }
+.cz-popper.l { left: -64px; transform: rotate(30deg); animation: cz-popper-l .55s ease-out .7s both; }
+.cz-popper.r { right: -64px; transform: scaleX(-1) rotate(30deg); animation: cz-popper-r .55s ease-out .7s both; }
+.cz-popper .cone { position: absolute; inset: 0; clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: repeating-linear-gradient(-45deg, #DEB251 0 8px, #B4443C 8px 16px); }
+.cz-popper .rim { position: absolute; top: -5px; left: -3px; right: -3px; height: 10px; border-radius: 50%; background: #0C525C; }
+.cz-popper .burst { position: absolute; left: 50%; top: 0; width: 0; height: 0; }
+.cz-popper .burst i, .cz-popper .burst b { position: absolute; left: -3px; top: -6px; opacity: 0;
+  animation: cz-burst 1.2s cubic-bezier(.12, .75, .3, 1) .75s forwards; }
+.cz-popper .burst i { width: 7px; height: 11px; border-radius: 2px; }
+.cz-popper .burst b { width: 3px; height: 28px; border-radius: 3px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition: none !important; }
   .cz-confetti { display: none; }

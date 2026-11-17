@@ -13,6 +13,7 @@ import streamlit as st
 from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
                           check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
                           save_flag, tour)
+from src import illus
 from src.share import add_inquiry, current_user, join_class, my_inquiries, sign_out, student_classes
 
 KEYS = ["s_l1", "s_l2", "s_l3", "s_l4"]
@@ -123,8 +124,14 @@ def result_screen(res):
         tip = "Pastikan pembayang memberi petunjuk kepada maksud, melalui bunyi, perkataan atau kiasan."
 
     # Side by side on a desktop, stacked on a phone
+    # Duolingo-style buddy: cheers for a strong result, keeps studying with you otherwise
+    buddy = (illus.img("gutspose_man", 92, "flex:none", "cheer") if res["sound"] >= 7.5
+             else illus.img("study_woman_normal", 92, "flex:none", "float"))
     cards_row([
-        card_html("Apa yang anda buat dengan baik", "<br>".join(f"✅ {html.escape(g)}" for g in good),
+        card_html("Apa yang anda buat dengan baik",
+                  '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'
+                  '<div style="flex:1 1 170px">'
+                  + "<br>".join(f"✅ {html.escape(g)}" for g in good) + f"</div>{buddy}</div>",
                   background="#E8F0EF", border="#C9DEDB", delay=0.6),
         card_html("💡 Petua", tip, delay=0.75),
     ])
@@ -166,11 +173,21 @@ def result_screen(res):
 
 def learn_screen():
     """Belajar Pantun: the parts of a pantun empat kerat that the checker looks at."""
-    st.subheader("Mengenal pantun empat kerat", anchor=False)
+    with st.container(horizontal=True, vertical_alignment="center"):
+        st.html(illus.img("book_open_yoko", 70, "", "pop") or "<span></span>", width="content")
+        st.subheader("Mengenal pantun empat kerat", anchor=False)
     left, right = st.columns(2, gap="large")
     with left:
         pantun_card(EXAMPLES["Pisang emas"])
         st.caption("Baris 1–2 (teal) ialah **pembayang**. Baris 3–4 (perang) ialah **maksud**.")
+        # Pembayang imagery from nature, as in the example: pisang, belayar (perahu), burung
+        pics = [("fruit_banana", "pisang"), ("norimono_yacht", "belayar"), ("kotori", "burung")]
+        tags = [(illus.img(n, 84, f"animation-delay:{i * 0.4:.1f}s", "float"), w) for i, (n, w) in enumerate(pics)]
+        if all(t for t, _ in tags):
+            st.html('<div style="display:flex;justify-content:space-around;margin-top:10px;font-family:Nunito,sans-serif">'
+                    + "".join(f'<div style="text-align:center">{t}<div style="color:#5b6670;font-size:.9rem;'
+                              f'margin-top:4px">{w}</div></div>' for t, w in tags) + "</div>")
+            st.caption("Pembayang selalunya meminjam gambaran alam seperti ini.")
     with right:
         st.markdown(
             "**1. Empat baris.** Pantun empat kerat ada 4 baris: 2 baris pembayang dan 2 baris maksud.\n\n"
@@ -228,6 +245,7 @@ def history_screen():
     account_panel()
     hist = st.session_state["s_history"]
     if not hist:
+        illus.show("box_kara_hako", 100, "float")
         st.info("Belum ada pantun yang disemak. Semak satu pantun dan ia akan muncul di sini.",
                 icon=":material/history:")
         return

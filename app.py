@@ -65,3 +65,8 @@ with st.container(key="cz_mobnav", horizontal=True):
     for p in pages:
         st.page_link(p, label=p.title, icon=p.icon, width="content")
 nav.run()
+
+# Small credit for the illustrations (only when they are on this computer; see src/illus.py)
+from src import illus  # noqa: E402
+if illus.available():
+    st.caption(f"<div style='text-align:center;opacity:.7'>{illus.CREDIT}</div>", unsafe_allow_html=True)
