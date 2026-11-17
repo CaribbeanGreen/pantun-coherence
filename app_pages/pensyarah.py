@@ -316,9 +316,17 @@ def review_page():
             "Kelas": view["class_name"].fillna(""), "Baris 1": view["line1"], "Komen": view["comment"],
             "Makna %": view["meaning_pct"], "Status": view["status"].map({"baru": "⏳ Baru", "selesai": "✅ Dijawab"}),
         })
-        ev = st.dataframe(table, hide_index=True, on_select="rerun", selection_mode="single-row", key="p_inq_table",
-                          alt="Pertanyaan pelajar dan tetamu")
+        if view.empty:
+            st.success("Semua pertanyaan sudah dijawab. Hidupkan **Tunjuk yang sudah dijawab** untuk melihatnya.",
+                       icon=":material/task_alt:")
+        # The table's key follows the toggle, so a row picked in one list isn't reused in the other.
+        table_key = f"p_inq_table_{show_done}"
+        ev = None if view.empty else st.dataframe(table, hide_index=True, on_select="rerun",
+                                                  selection_mode="single-row", key=table_key,
+                                                  alt="Pertanyaan pelajar dan tetamu")
         sel = ev.selection.rows if ev and ev.selection else []
+        # A remembered selection can point past the end once a row is answered (it leaves the list): ignore it.
+        sel = [i for i in sel if 0 <= i < len(view)]
         if sel:
             row = view.iloc[sel[0]]
             with st.container(border=True):
@@ -334,6 +342,7 @@ def review_page():
                         reply = st.text_area("Jawapan kepada pelajar", placeholder="cth. Pembayang anda mengiaskan ...")
                         if st.form_submit_button("Tandakan dijawab", type="primary", icon=":material/check:"):
                             resolve_inquiry(int(row["id"]), ME, reply)
+                            st.session_state.pop(table_key, None)    # forget the picked row: it may leave the list
                             st.rerun()
     st.subheader("Log keputusan pensyarah", anchor=False)
     log = read_log(DECISIONS_CSV)
