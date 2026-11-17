@@ -758,7 +758,7 @@ write the config file and run it (Part 8).
 - [ ] Teachers sign up themselves (**Daftar → Pensyarah**); approve them on **Kongsi → Ahli** (**Luluskan**)
 - [ ] Each teacher makes classes (**Pensyarah → Kod kelas & pelajar**) and gives students the code
 - [ ] Students sign up with that code (**Daftar → Pelajar**)
-- [ ] Experts, or anyone you prefer to set up yourself: **Cipta akaun** on Kongsi → Ahli
+- [ ] Experts (and teachers you want approved straight away): **Cipta akaun pakar atau pensyarah** on Kongsi → Ahli
 - [ ] Copy the message from the box (the key is shown only once) and send it privately
 - [ ] Press **Sudah disalin**
 - [ ] Later: their first login appears in **Sejarah log masuk**

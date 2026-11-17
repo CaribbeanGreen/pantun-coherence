@@ -1213,15 +1213,18 @@ def members_panel():
                 st.session_state.pop("owner_new_key")
                 st.rerun()
 
-    with st.expander("➕ Cipta akaun (pensyarah, pakar atau pelajar)", expanded=False):
+    # Students sign up themselves with a class code, so the owner only creates experts (no sign-up for them)
+    # and, as a shortcut, teachers who are approved straight away.
+    with st.expander("➕ Cipta akaun pakar atau pensyarah", expanded=False):
+        st.caption("Pakar hanya boleh dicipta di sini (tiada pendaftaran sendiri). Pensyarah yang dicipta di sini "
+                   "terus diluluskan. Pelajar pula mendaftar sendiri dengan kod kelas daripada pensyarah.")
         with st.form("add_member", clear_on_submit=True):
             c1, c2 = st.columns(2)
             username = c1.text_input("Nama pengguna", placeholder="cth. drhasiah", max_chars=24)
             name = c2.text_input("Nama penuh", placeholder="cth. Dr. Hasiah")
-            role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get,
-                                help="Pelajar: halaman Pelajar. Pensyarah: Pensyarah + mod pakar + Pelajar (diluluskan "
-                                     "terus). Penyelidik / Pakar: Penyelidik + Pelajar. Pelajar biasanya mendaftar "
-                                     "sendiri dengan kod kelas.")
+            role = st.selectbox("Peranan", ["penyelidik", "pensyarah"], format_func=ROLES.get,
+                                help="Penyelidik / Pakar: Penyelidik + Pelajar. "
+                                     "Pensyarah: Pensyarah + mod pakar + Pelajar.")
             c3, c4 = st.columns(2)
             dur = c3.selectbox("Sah selama", list(DURATIONS), index=2)
             note = c4.text_input("Catatan (pilihan)", placeholder="cth. penyelia CSC575")
