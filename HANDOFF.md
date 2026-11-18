@@ -50,14 +50,14 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 - Latest work (all merged): Irasutoya pictures and sign-up celebration; same-name check at sign-up;
   lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
   lecturer accounts, retired usernames); fix for the Semakan crash after answering an inquiry.
-- Old branches `illustrations` and `business-case-sync` are fully merged and can be deleted.
+- Old branches `illustrations` and `business-case-sync` were merged and deleted; only `main` remains.
 - Hosting: temporary, via Cloudflare Tunnel at pantun.aimanjamal.com (**Start Sharing.bat**), off by default.
 
 ## 6. Follow-up list (open items)
 Tick them off here when done.
 
 - [x] Merge `illustrations` into `main` (done 17 Nov 2026).
-- [ ] Delete the old `illustrations` and `business-case-sync` branches (local and GitHub).
+- [x] Delete the old `illustrations` and `business-case-sync` branches (done 18 Nov 2026).
 - [ ] Decide whether the GitHub repo should stay **public** (fine for a course project, but think about it
       before adding anything personal).
 - [ ] Optional: a small showcase page on Vercel (Vercel cannot run Streamlit itself; it would only describe
