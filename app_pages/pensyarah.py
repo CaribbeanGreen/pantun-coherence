@@ -1,6 +1,6 @@
 """Instructor view (business case Section 6.3, Exhibit 4; SRF11, SRF12): Malay, desktop.
 
-Side menu (label 1): Kelas saya, Semakan, Laporan.
+Side menu (label 1): Papan pemuka, Kelas saya, Kod kelas & pelajar, Semakan, Laporan.
 Upload a class CSV -> every pantun is checked -> a work queue shows what needs attention first ->
 the instructor agrees, changes the decision, or sends it to an expert. Every decision is logged
 to results/instructor_decisions.csv (with time, so the MOV "time to first feedback" can be measured).
@@ -14,19 +14,20 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from src.app_core import (DECISIONS_CSV, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
+from src.app_core import (DECISIONS_CSV, EXAMPLES, FLAGS_CSV, LEAN_MALAY, TEAL, analyse, check_lines, help_button,
                           pantun_card, read_log, rhyme_text, save_decision, tour)
+from src import dashboard as dz
 from src import illus
 from src.data_loader import load_pantun
-from src.share import (class_students, classes_of, create_class, current_user, inquiries_for, remove_from_class,
-                       require_view, reset_key, resolve_inquiry, set_class_active, teacher_has_student)
+from src.share import (class_students, classes_of, create_class, current_user, get_member, inquiries_for,
+                       remove_from_class, require_view, reset_key, resolve_inquiry, set_class_active, teacher_has_student)
 
 require_view("pensyarah")      # lecturers (and the owner) only; students and guests never see this page
 ME = current_user()
 
 ACTIONS = {"setuju": "✔ Setuju", "ubah": "✎ Diubah", "pakar": "⚑ Dihantar kepada pakar"}
 TEMPLATE = "pelajar,baris1,baris2,baris3,baris4\nS001,Pisang emas dibawa belayar,Masak sebiji di atas peti,Hutang emas boleh dibayar,Hutang budi dibawa mati\n"
-MENU = ["📚 Kelas saya", "🏫 Kod kelas & pelajar", "📝 Semakan", "📊 Laporan"]
+MENU = ["![](/app/static/i/home.png) Papan pemuka", "![](/app/static/i/book.png) Kelas saya", "![](/app/static/i/school.png) Kod kelas & pelajar", "![](/app/static/i/notebook.png) Semakan", "![](/app/static/i/chart.png) Laporan"]
 
 st.session_state.setdefault("p_class", [])         # one dict per submission
 st.session_state.setdefault("p_decisions", {})     # student -> (action, note, time)
@@ -34,11 +35,11 @@ st.session_state.setdefault("p_class_name", "Kelas BM2 · Pantun Nasihat")
 
 # Fixed teal side menu (Exhibit 4, label 1). This style only loads on this page.
 st.html(f"""<style>
-section[data-testid="stSidebar"] {{background:{TEAL}}}
+section[data-testid="stSidebar"] {{background:linear-gradient(180deg,#2F6BFF,#21B6E8)}}
 section[data-testid="stSidebar"] * {{color:#fff}}
-section[data-testid="stSidebar"] [role="radiogroup"] label {{padding:8px 10px;border-radius:8px;margin:2px 0}}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{background:rgba(255,255,255,.16);
-  box-shadow:inset 3px 0 0 #DEB251;font-weight:700}}
+section[data-testid="stSidebar"] [role="radiogroup"] label {{padding:9px 11px;border-radius:16px;margin:3px 0;font-weight:800}}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{background:#FFC83D;box-shadow:0 4px 0 #D99400}}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) * {{color:#17324D}}
 </style>""")
 
 
@@ -181,7 +182,7 @@ def summary_cards(rows, dec):
 
 # ---- Side menu ----------------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🟡 Cenderawasih")
+    st.markdown("### ![](/app/static/i/hornbill.png) Cenderawasih")
     section = st.radio("Menu", MENU, key="p_menu", label_visibility="collapsed")
     st.caption("Sistem membantu; pensyarah membuat keputusan akhir.")
 
@@ -190,8 +191,110 @@ with st.container(horizontal=True, horizontal_alignment="right"):
     help_button("pensyarah")
 
 
+# ---- Papan pemuka: the lecturer's home ------------------------------------------------------------
+def go_to(i):
+    st.session_state["p_menu"] = MENU[i]
+
+
+def my_decisions():
+    log = read_log(DECISIONS_CSV)
+    if log.empty or ME["kind"] == "owner":
+        return log
+    return log[log["instructor"] == ME["username"]]
+
+
+def activity(inq, log):
+    """Newest things that happened in this lecturer's classes: inquiries in, replies out, decisions made."""
+    items = []
+    for r in inq.itertuples():
+        who = dz.esc(r.who or "Tanpa nama")
+        text = f"Pertanyaan <b>{who}</b> dijawab" if r.status == "selesai" else f"<b>{who}</b> menghantar pertanyaan"
+        items.append((float(r.time), r.who or "?", text))
+    if not log.empty:
+        for r in log.tail(10).itertuples():
+            t = pd.to_datetime(r.timestamp, errors="coerce")
+            if pd.notna(t):
+                when = t.tz_localize(dz.MYT).timestamp() if t.tzinfo is None else t.timestamp()
+                items.append((when, r.student, f"Keputusan <b>{dz.esc(ACTIONS.get(r.action, r.action))}</b> "
+                                               f"untuk {dz.esc(r.student)}"))
+    return sorted(items, key=lambda x: -x[0])[:3]
+
+
+def dashboard_page():
+    st.html(dz.CSS)
+    classes = classes_of(None if ME["kind"] == "owner" else ME["username"])
+    students_of = {c["code"]: class_students(c["code"]) for c in classes}
+    people = {s["username"] for group in students_of.values() for s in group}
+    inq, log = inquiries_for(ME), my_decisions()
+    waiting = inq[inq["status"] != "selesai"]
+    answered = len(inq) - len(waiting)
+    open_by_class = waiting["class_code"].value_counts().to_dict() if not waiting.empty else {}
+    account = get_member(ME["username"]) if ME["kind"] == "member" else None
+
+    with st.container(key="d_hero"):
+        illus.stage(*dz.hero(ME["name"], len(waiting), len(classes), account["expires"] if account else None))
+    with st.container(key="d_kpis"):
+        st.html(dz.kpis([
+            ("<img class=cz-i alt src=/app/static/i/school.png>", sum(1 for c in classes if c["active"]), "kelas aktif", "#2AA7E0", False),
+            ("<img class=cz-i alt src=/app/static/i/backpack.png>", len(people), "pelajar", "#9B5DE5", False),
+            ("<img class=cz-i alt src=/app/static/i/hourglass.png>", len(waiting), "menunggu jawapan", "#FF6B5E", len(waiting) > 0),
+            ("<img class=cz-i alt src=/app/static/i/ok_mark.png>", answered, "pertanyaan dijawab", "#1E9A50", False),
+            ("<img class=cz-i alt src=/app/static/i/notebook.png>", len(log), "keputusan direkod", "#F08A00", False),
+        ]))
+
+    with st.container(key="d_actions", horizontal=True):
+        st.button("Semak kelas", key="d_go_class", icon=":material/upload_file:", width="stretch",
+                  on_click=go_to, args=(1,))
+        st.button("Cipta kelas & kod", key="d_go_codes", icon=":material/add_circle:", width="stretch",
+                  on_click=go_to, args=(2,))
+        st.button("Jawab pertanyaan", key="d_go_review", icon=":material/forum:", width="stretch",
+                  on_click=go_to, args=(3,))
+        st.button("Lihat laporan", key="d_go_report", icon=":material/bar_chart:", width="stretch",
+                  on_click=go_to, args=(4,))
+
+    left, right = st.columns([3, 2], gap="medium")
+    with left:
+        steps = [("Cipta kelas pertama anda", bool(classes)),
+                 ("Kongsi kod kelas: seorang pelajar menyertai", bool(people)),
+                 ("Semak pantun atau jawab satu pertanyaan", bool(answered or len(log)))]
+        if not all(d for _, d in steps):
+            with st.container(border=True, key="d_start"):
+                st.html('<p class="dz-h"><img class=cz-i alt src=/app/static/i/rocket.png> Langkah bermula</p>' + dz.checklist(steps))
+        with st.container(border=True, key="d_waiting"):
+            st.html('<p class="dz-h"><img class=cz-i alt src=/app/static/i/raise_hand.png> Perlu perhatian anda</p>')
+            if waiting.empty:
+                illus.show("gutspose_man", 76, "float")
+                st.html('<p class="dz-sub" style="text-align:center;margin:0">Tiada pertanyaan menunggu. Syabas!</p>')
+            else:
+                st.html(dz.inquiry_items(waiting.head(4)))
+                if len(waiting) > 4:
+                    st.caption(f"dan {len(waiting) - 4} lagi")
+        st.html('<p class="dz-h" style="margin-top:6px"><img class=cz-i alt src=/app/static/i/school.png> Kelas saya</p>')
+        if classes:
+            st.html(dz.class_cards(classes, students_of, open_by_class))
+        else:
+            illus.show("box_kara_hako", 80, "float")
+            st.html('<p class="dz-sub" style="text-align:center">Belum ada kelas. Tekan <b>Cipta kelas &amp; kod</b>.</p>')
+    with right:
+        with st.container(border=True, key="d_poem"):
+            st.html('<p class="dz-h"><img class=cz-i alt src=/app/static/i/hibiscus.png> Pantun hari ini</p>' + dz.poem(dz.poem_of_day(EXAMPLES)))
+        if rows:
+            done = sum(1 for r in rows if r["student"] in dec)
+            with st.container(border=True, key="d_progress"):
+                st.html(f'<p class="dz-h"><img class=cz-i alt src=/app/static/i/book.png> {dz.esc(st.session_state["p_class_name"])}</p>'
+                        f'<div class="dz-sub">{done} daripada {len(rows)} pantun sudah diputuskan</div>'
+                        f'<div class="dz-meter"><i style="width:{100 * done / len(rows):.0f}%"></i></div>')
+        with st.container(border=True, key="d_trend"):
+            st.html('<p class="dz-h"><img class=cz-i alt src=/app/static/i/chart.png> Pertanyaan, 14 hari</p>' + dz.bars(dz.daily_counts(inq["time"].tolist())))
+        feed = activity(inq, log)
+        with st.container(border=True, key="d_feed"):
+            st.html('<p class="dz-h"><img class=cz-i alt src=/app/static/i/clock.png> Aktiviti terkini</p>'
+                    + (dz.feed(feed) if feed else '<p class="dz-sub">Aktiviti kelas anda akan muncul di sini.</p>'))
+
+
 # ---- Kelas saya: upload, summary, work queue, review panel ---------------------------------------
 def class_page():
+    illus.stage("kelas", "Kelas Saya", "Muat naik pantun kelas, semak, dan buat keputusan.", "Semak kelas")
     with st.container(horizontal=True, vertical_alignment="bottom"):
         st.text_input("Nama kelas", key="p_class_name", width=420)
         if rows:
@@ -293,12 +396,12 @@ def class_page():
 
 
 # ---- Semakan: requests from students and the decision log ----------------------------------------
-KIND_LABEL = {"pelajar": "🎒 Pelajar kelas", "tetamu": "🎟️ Tetamu (sementara)", "pemilik": "Pemilik",
+KIND_LABEL = {"pelajar": "Pelajar kelas", "tetamu": "Tetamu (sementara)", "pemilik": "Pemilik",
               "lama": "Lama"}
 
 
 def review_page():
-    st.subheader("Pertanyaan 'Saya tidak setuju'", anchor=False)
+    illus.stage("semakan", "Semakan", "Pertanyaan “Saya tidak setuju” daripada pelajar anda.", "Jawab pelajar")
     st.caption("Pelajar kelas anda: disimpan. Tetamu dan pelawat: dihantar kepada semua pensyarah dan dipadam "
                "apabila akses tetamu tamat.")
     inq = inquiries_for(ME)       # privacy: only your classes' students, plus current guests
@@ -314,7 +417,7 @@ def review_page():
                       .dt.strftime("%d/%m %H:%M"),
             "Daripada": view["who"], "Jenis": view["kind"].map(KIND_LABEL),
             "Kelas": view["class_name"].fillna(""), "Baris 1": view["line1"], "Komen": view["comment"],
-            "Makna %": view["meaning_pct"], "Status": view["status"].map({"baru": "⏳ Baru", "selesai": "✅ Dijawab"}),
+            "Makna %": view["meaning_pct"], "Status": view["status"].map({"baru": "Baru", "selesai": "Dijawab"}),
         })
         if view.empty:
             st.success("Semua pertanyaan sudah dijawab. Hidupkan **Tunjuk yang sudah dijawab** untuk melihatnya.",
@@ -359,7 +462,7 @@ def review_page():
 
 # ---- Laporan: class summary and export ----------------------------------------------------------
 def report_page():
-    st.subheader(f"Laporan · {st.session_state['p_class_name']}", anchor=False)
+    illus.stage("laporan", "Laporan", dz.esc(st.session_state["p_class_name"]), "Ringkasan kelas")
     if not rows:
         st.info("Muat naik kelas dalam **Kelas saya** dahulu.", icon=":material/upload:")
         return
@@ -384,11 +487,7 @@ def _temp_key(student):
 
 
 def codes_page():
-    with st.container(horizontal=True, vertical_alignment="center"):
-        st.html(illus.img("job_senesi", 64, "", "pop") or "<span></span>", width="content")
-        st.subheader("Kod kelas & pelajar", anchor=False)
-    st.caption("Cipta kelas, kemudian beri kodnya kepada pelajar. Mereka mendaftar di laman dengan kod itu, dan "
-               "pertanyaan mereka datang kepada anda.")
+    illus.stage("kod", "Kod Kelas &amp; Pelajar", "Cipta kelas, beri kodnya kepada pelajar, dan pertanyaan mereka datang kepada anda.", "Kumpul kelas anda")
     temp = st.session_state.get("p_temp_key")
     if temp:
         st.success(f"Kata laluan sementara untuk **{temp[0]}**: `{temp[1]}` (dipaparkan sekali sahaja). Pelajar boleh "
@@ -434,16 +533,20 @@ def codes_page():
                                       args=(c["code"], s_["username"]))
 
 
-{MENU[0]: class_page, MENU[1]: codes_page, MENU[2]: review_page, MENU[3]: report_page}[section]()
+{MENU[0]: dashboard_page, MENU[1]: class_page, MENU[2]: codes_page, MENU[3]: review_page, MENU[4]: report_page}[section]()
 
 tour("pensyarah", [
-    ("section[data-testid='stSidebar']", "Menu pensyarah 📚",
-     "<b>Kelas saya</b> untuk menyemak kelas, <b>Semakan</b> untuk permintaan pelajar, <b>Laporan</b> untuk ringkasan."),
-    (".st-key-p_upload", "Muat naik kelas 📤",
+    ("section[data-testid='stSidebar']", "Menu pensyarah <img class=cz-i alt src=/app/static/i/book.png>",
+     "<b>Papan pemuka</b> untuk gambaran harian, <b>Kelas saya</b> untuk menyemak kelas, <b>Kod kelas</b> untuk pelajar, "
+     "<b>Semakan</b> untuk pertanyaan, <b>Laporan</b> untuk ringkasan."),
+    (".st-key-d_kpis", "Gambaran kelas anda <img class=cz-i alt src=/app/static/i/home.png>", "Kelas, pelajar, dan pertanyaan yang <b>menunggu jawapan</b> sekali imbas."),
+    (".st-key-d_actions", "Jalan pintas <img class=cz-i alt src=/app/static/i/stopwatch.png>", "Terus ke kerja utama: semak kelas, cipta kod, jawab pertanyaan atau laporan."),
+    (".st-key-d_waiting", "Perlu perhatian <img class=cz-i alt src=/app/static/i/raise_hand.png>", "Pertanyaan terbaru daripada pelajar anda ditunjuk di sini."),
+    (".st-key-p_upload", "Muat naik kelas <img class=cz-i alt src=/app/static/i/folder.png>",
      "Seret fail CSV (ID pelajar, baris 1–4). Muat turun templat, atau cuba <b>kelas contoh</b>."),
-    (".st-key-p_queue", "Senarai kerja 🗂️",
+    (".st-key-p_queue", "Senarai kerja <img class=cz-i alt src=/app/static/i/folder.png>",
      "<b>Perlu semakan</b> menunjukkan kes yang belum diputuskan dahulu. Pilih satu baris untuk menyemak."),
     (".st-key-p_panel", "Buat keputusan ✔",
      "<b>Setuju</b>, <b>ubah keputusan</b> atau <b>hantar kepada pakar</b>. Setiap keputusan direkod."),
-    (".st-key-help_pensyarah", "Video tutorial ▶️", "Tekan <b>Cara guna</b> untuk video tutorial bila-bila masa."),
+    (".st-key-help_pensyarah", "Video tutorial <img class=cz-i alt src=/app/static/i/play.png>", "Tekan <b>Cara guna</b> untuk video tutorial bila-bila masa."),
 ])

@@ -5,13 +5,20 @@
 const T = {
   handlers: [],               // functions f(t) run on every seek (typing, captions, counters)
   duration: 60,
+  shift: 0,                   // added to every time below (lets a whole scene start later)
 };
+
+// Run f(t) on every seek, with t measured from the current shift.
+function on(fn) {
+  const s = T.shift;
+  T.handlers.push((now) => fn(now - s));
+}
 
 // Animate `el` from time `t` for `dur` seconds. Keyframes as in element.animate().
 function at(el, t, dur, keyframes, easing = "cubic-bezier(.22,.8,.3,1)") {
   el = typeof el === "string" ? document.querySelector(el) : el;
   if (!el) throw new Error("no element");
-  el.animate(keyframes, { delay: t * 1000, duration: dur * 1000, fill: "both", easing });
+  el.animate(keyframes, { delay: (t + T.shift) * 1000, duration: dur * 1000, fill: "both", easing });
 }
 
 // Show (fade + rise) and hide helpers.
@@ -30,6 +37,7 @@ function hide(el, t, dur = 0.4) {
 function typeText(el, text, t, cps = 22) {
   el = typeof el === "string" ? document.querySelector(el) : el;
   el.textContent = "";
+  t += T.shift;
   T.handlers.push((now) => {
     const n = Math.max(0, Math.min(text.length, Math.floor((now - t) * cps)));
     el.textContent = text.slice(0, n);
@@ -41,6 +49,7 @@ function typeText(el, text, t, cps = 22) {
 // Count a number up (e.g. summary cards).
 function countUp(el, to, t, dur = 1, fmt = (v) => Math.round(v)) {
   el = typeof el === "string" ? document.querySelector(el) : el;
+  t += T.shift;
   T.handlers.push((now) => {
     const k = Math.max(0, Math.min(1, (now - t) / dur));
     el.textContent = fmt(to * (1 - Math.pow(1 - k, 3)));
@@ -139,6 +148,7 @@ function ring(el, frac, colour, t, dur = 1.2) {
 // Toggle a class between two times (e.g. pressed buttons, selected rows).
 function classBetween(el, cls, t0, t1 = 1e9) {
   el = typeof el === "string" ? document.querySelector(el) : el;
+  t0 += T.shift; t1 += T.shift;
   T.handlers.push((now) => el.classList.toggle(cls, now >= t0 && now < t1));
 }
 

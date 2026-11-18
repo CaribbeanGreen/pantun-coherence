@@ -43,6 +43,7 @@ The app can be opened from anywhere through a Cloudflare Tunnel:
 - **Classes and inquiries**: teachers create classes and codes, manage their students, and answer their
   students' "Saya tidak setuju" inquiries. Guest inquiries go to all teachers and are deleted when guest
   access ends.
+- **Testing with friends** (Kongsi → 🧪 Penguji): open **Borang Penguji**, create a tester account and send the ready-made invite. Answers and score ratings come back to the same tab.
 - **Access without an account** (Kongsi): 🔒 Tutup (accounts only), 🎟️ Kod sahaja (30-second guest code) or
   🌐 Terbuka (anyone can use the student page), for a time you choose.
 - **Lecturer accounts ending**: their classes stop taking new students and you see their inquiries;

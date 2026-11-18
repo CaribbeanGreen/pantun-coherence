@@ -1,21 +1,118 @@
 # Illustrations: いらすとや (Irasutoya)
 
-All images in this folder are by いらすとや (https://www.irasutoya.com/), used under its terms
-(https://www.irasutoya.com/p/terms.html): free to use, copyright kept by the author, no redistribution.
-This is a non-commercial course project (CSC575), so the 20-images-per-work limit for commercial use does not
-apply; re-check the terms if the project ever becomes a paid product.
+All images are by いらすとや (https://www.irasutoya.com/), used under its terms (https://www.irasutoya.com/p/terms.html): free to use, copyright kept by the author, no redistribution.
+This is a non-commercial course project (CSC575), so the limit of 20 images per work for commercial use does not apply. **If the project ever becomes a paid product, this many pictures would exceed that limit: re-check the terms first.**
 
-This folder is in .gitignore and is **not** published on GitHub. Downloaded 2026-11-17.
+The image files are in .gitignore and are **not** published on GitHub; run `python tools/fetch_irasutoya.py` to download them. The tutorial videos show some of them as part of the app's screens.
 
 | File | Illustration | Page |
 |---|---|---|
-| fruit_banana.png | バナナのイラスト（フルーツ） | https://www.irasutoya.com/2012/11/blog-post_5.html |
-| kotori.png | 小鳥のイラスト | https://www.irasutoya.com/2013/05/blog-post_2044.html |
-| norimono_yacht.png | ヨットのイラスト | https://www.irasutoya.com/2013/05/blog-post_9493.html |
-| yashinoki.png | ヤシの木のイラスト | https://www.irasutoya.com/2012/03/blog-post_9767.html |
+| arrow_down.png | いろいろな矢印のイラスト | https://www.irasutoya.com/2013/01/blog-post_7794.html |
+| backpack.png | リュックサックのイラスト | https://www.irasutoya.com/2014/01/blog-post_1406.html |
+| bell.png | 呼び鈴のイラスト | https://www.irasutoya.com/2017/04/blog-post_635.html |
+| book.png | 本の虫のイラスト（女性） | https://www.irasutoya.com/2019/08/blog-post_59.html |
 | book_open_yoko.png | 開いた本のイラスト | https://www.irasutoya.com/2016/10/blog-post_450.html |
-| study_woman_normal.png | 集中して勉強をする人のイラスト（女性） | https://www.irasutoya.com/2017/10/blog-post_458.html |
-| job_senesi.png | 先生・講師のイラスト | https://www.irasutoya.com/2012/12/blog-post_4232.html |
-| gutspose_man.png | ガッツポーズをしている男の子のイラスト | https://www.irasutoya.com/2013/09/blog-post_7325.html |
-| key.png | 鍵のイラスト | https://www.irasutoya.com/2014/01/blog-post_1995.html |
 | box_kara_hako.png | 空き箱のイラスト | https://www.irasutoya.com/2015/07/blog-post_58.html |
+| bulb.png | 電球のイラスト | https://www.irasutoya.com/2016/02/blog-post_58.html |
+| butterfly.png | アゲハチョウのイラスト（蝶） | https://www.irasutoya.com/2013/02/blog-post_250.html |
+| calendar.png | 卓上カレンダーのイラスト | https://www.irasutoya.com/2015/01/blog-post_256.html |
+| cat.png | ネコトモのイラスト | https://www.irasutoya.com/2020/11/blog-post_33.html |
+| chart.png | いろいろな棒グラフのイラスト | https://www.irasutoya.com/2015/06/blog-post_99.html |
+| clipboard.png | 署名のお願いのイラスト | https://www.irasutoya.com/2016/11/blog-post_815.html |
+| clock.png | 懐中時計のイラスト | https://www.irasutoya.com/2014/06/blog-post_5879.html |
+| cloud.png | 雲のイラスト | https://www.irasutoya.com/2014/04/blog-post_2918.html |
+| coconut.png | ココナッツ・ヤシの実のイラスト | https://www.irasutoya.com/2014/08/blog-post_60.html |
+| compass.png | コンパス・方位磁石のイラスト | https://www.irasutoya.com/2013/11/blog-post_18.html |
+| computer.png | パソコンのモニタのイラスト | https://www.irasutoya.com/2019/06/blog-post_981.html |
+| crab.png | カニのイラスト | https://www.irasutoya.com/2012/03/blog-post_5990.html |
+| cracker.png | パーティーのクラッカーのイラスト | https://www.irasutoya.com/2012/04/blog-post_351.html |
+| door.png | 勢いよく閉まるドアのイラスト | https://www.irasutoya.com/2018/12/blog-post_98.html |
+| durian.png | パラミツのイラスト | https://www.irasutoya.com/2018/02/blog-post_113.html |
+| elephant.png | 象のキャラクター | https://www.irasutoya.com/2017/09/blog-post_599.html |
+| fish.png | ベタのイラスト | https://www.irasutoya.com/2017/05/blog-post_126.html |
+| flower.png | くちなしの花のイラスト | https://www.irasutoya.com/2020/09/blog-post_14.html |
+| folder.png | フォルダのイラスト | https://www.irasutoya.com/2016/03/blog-post_790.html |
+| frog.png | カエルのキャラクター | https://www.irasutoya.com/2018/11/blog-post_893.html |
+| fruit_banana.png | バナナのイラスト（フルーツ） | https://www.irasutoya.com/2012/11/blog-post_5.html |
+| gear.png | 潤滑油のイラスト | https://www.irasutoya.com/2016/10/blog-post_301.html |
+| gift.png | 開いたプレゼント箱のイラスト | https://www.irasutoya.com/2014/12/blog-post_72.html |
+| globe.png | 地球のイラスト | https://www.irasutoya.com/2013/01/blog-post_9857.html |
+| group.png | いろいろなマスクを付けた会議のイラスト | https://www.irasutoya.com/2020/11/blog-post_29.html |
+| gutspose_man.png | ガッツポーズをしている男の子のイラスト | https://www.irasutoya.com/2013/09/blog-post_7325.html |
+| handshake.png | 握手する手のイラスト | https://www.irasutoya.com/2020/07/blog-post_5.html |
+| heart.png | ハート+1のマーク | https://www.irasutoya.com/2016/06/1.html |
+| hibiscus.png | ハイビスカスのイラスト | https://www.irasutoya.com/2012/03/blog-post_5576.html |
+| home.png | 家・建物のイラスト「１階建て一軒家」 | https://www.irasutoya.com/2012/12/blog-post_6568.html |
+| hornbill.png | サイチョウのイラスト | https://www.irasutoya.com/2017/01/blog-post_98.html |
+| hourglass.png | 砂時計のイラスト | https://www.irasutoya.com/2014/09/blog-post_984.html |
+| island.png | 無人島のイラスト | https://www.irasutoya.com/2016/07/blog-post_692.html |
+| job_senesi.png | 先生・講師のイラスト | https://www.irasutoya.com/2012/12/blog-post_4232.html |
+| key.png | 鍵のイラスト | https://www.irasutoya.com/2014/01/blog-post_1995.html |
+| kotori.png | 小鳥のイラスト | https://www.irasutoya.com/2013/05/blog-post_2044.html |
+| lantern.png | ランタン・カンテラのイラスト | https://www.irasutoya.com/2013/12/blog-post_6214.html |
+| leaf.png | 風のイラスト | https://www.irasutoya.com/2021/06/blog-post_21.html |
+| lock.png | 南京錠のイラスト | https://www.irasutoya.com/2013/05/blog-post_6490.html |
+| magnifier.png | 虫眼鏡のイラスト（文房具） | https://www.irasutoya.com/2013/03/blog-post_385.html |
+| mail.png | 手紙のイラスト「封筒と便箋」 | https://www.irasutoya.com/2013/04/blog-post_823.html |
+| mango.png | 宮崎県のキャラクター | https://www.irasutoya.com/2017/04/blog-post_42.html |
+| map.png | 時差のイラスト | https://www.irasutoya.com/2021/01/blog-post_63.html |
+| medal.png | 布のメダルのイラスト | https://www.irasutoya.com/2013/08/blog-post_9593.html |
+| megaphone.png | 拡声器・メガホンのイラスト | https://www.irasutoya.com/2014/01/blog-post_3156.html |
+| microscope.png | 顕微鏡のイラスト | https://www.irasutoya.com/2013/03/blog-post_5871.html |
+| monkey.png | 猿のキャラクター | https://www.irasutoya.com/2017/09/blog-post_520.html |
+| moon.png | 月の裏側のイラスト | https://www.irasutoya.com/2016/08/blog-post_116.html |
+| mountain.png | 山のイラスト | https://www.irasutoya.com/2017/01/blog-post_735.html |
+| music.png | 音楽のイラスト「五線譜と音符」 | https://www.irasutoya.com/2012/11/blog-post_6716.html |
+| ng_mark.png | バツのマークのイラスト「×」 | https://www.irasutoya.com/2014/01/blog-post_9764.html |
+| norimono_yacht.png | ヨットのイラスト | https://www.irasutoya.com/2013/05/blog-post_9493.html |
+| notebook.png | 在宅勤務中のアマビエのイラスト | https://www.irasutoya.com/2020/05/blog-post_31.html |
+| ok_mark.png | マルとバツを出す猫のキャラクター | https://www.irasutoya.com/2017/12/blog-post_89.html |
+| orangutan.png | オラウータンのイラスト | https://www.irasutoya.com/2013/07/blog-post_2507.html |
+| owl.png | フクロウ博士のイラスト | https://www.irasutoya.com/2018/01/blog-post_80.html |
+| papaya.png | 青パパイヤのイラスト | https://www.irasutoya.com/2019/02/blog-post_64.html |
+| paper.png | 申請書のイラスト | https://www.irasutoya.com/2020/05/blog-post_59.html |
+| parrot.png | カカポのイラスト | https://www.irasutoya.com/2018/11/blog-post_31.html |
+| peacock.png | クジャクのイラスト | https://www.irasutoya.com/2013/10/blog-post_5340.html |
+| pencil.png | 鉛筆のマーク | https://www.irasutoya.com/2018/05/blog-post_583.html |
+| phone.png | 新しいスマートフォンのイラスト | https://www.irasutoya.com/2019/12/blog-post_601.html |
+| pineapple.png | パイナップルのイラスト（フルーツ） | https://www.irasutoya.com/2012/11/blog-post_22.html |
+| plane.png | 紙飛行機のイラスト（表・裏） | https://www.irasutoya.com/2016/08/blog-post_88.html |
+| play.png | いろいろな再生ボタンのイラスト（青） | https://www.irasutoya.com/2017/06/blog-post_572.html |
+| printer.png | 複合機のイラスト | https://www.irasutoya.com/2016/04/blog-post_55.html |
+| rabbit.png | グレーのうさぎのイラスト | https://www.irasutoya.com/2019/10/blog-post_68.html |
+| rain.png | いろいろな梅雨のマーク | https://www.irasutoya.com/2016/01/blog-post_63.html |
+| rainbow.png | 虹のイラスト | https://www.irasutoya.com/2013/08/blog-post_26.html |
+| raise_hand.png | スマートフォンを持って挙手する人のイラスト（女性） | https://www.irasutoya.com/2018/03/blog-post_669.html |
+| rice.png | 稲・稲穂のイラスト | https://www.irasutoya.com/2013/09/blog-post_7851.html |
+| rocket.png | ロケットのイラスト | https://www.irasutoya.com/2013/07/blog-post_30.html |
+| sailboat.png | 帆船のイラスト | https://www.irasutoya.com/2013/05/blog-post_4198.html |
+| save.png | Zipディスクのイラスト | https://www.irasutoya.com/2017/10/zip.html |
+| school.png | 木造校舎のイラスト | https://www.irasutoya.com/2019/08/blog-post_605.html |
+| scissors.png | 剪定はさみのイラスト | https://www.irasutoya.com/2018/02/blog-post_19.html |
+| shell.png | 法螺貝のイラスト | https://www.irasutoya.com/2016/12/blog-post_178.html |
+| sparkle.png | いろいろなキラキラ飾りのイラスト | https://www.irasutoya.com/2014/07/blog-post_9995.html |
+| speaker.png | スピーカーのイラスト | https://www.irasutoya.com/2018/09/blog-post_617.html |
+| speech.png | 子供たちと吹き出しのイラスト | https://www.irasutoya.com/2017/10/blog-post_992.html |
+| star.png | 五芒星のマーク | https://www.irasutoya.com/2018/12/blog-post_903.html |
+| starfish.png | ヒトデのイラスト | https://www.irasutoya.com/2013/10/blog-post_4287.html |
+| stopwatch.png | ストップウォッチのイラスト | https://www.irasutoya.com/2013/07/blog-post_6430.html |
+| student.png | 机を運ぶ学生のイラスト（女子） | https://www.irasutoya.com/2020/06/blog-post_470.html |
+| study_woman_normal.png | 集中して勉強をする人のイラスト（女性） | https://www.irasutoya.com/2017/10/blog-post_458.html |
+| sun.png | いろいろな太陽のイラスト（黄） | https://www.irasutoya.com/2016/12/blog-post_566.html |
+| swap.png | いろいろな矢印のイラスト | https://www.irasutoya.com/2020/07/blog-post_11.html |
+| tablet.png | タブレットPCのイラスト | https://www.irasutoya.com/2013/01/pc.html |
+| target.png | ダーツの的と矢のイラスト | https://www.irasutoya.com/2013/05/blog-post_4196.html |
+| test_tube.png | 試験管のイラスト | https://www.irasutoya.com/2016/06/blog-post_653.html |
+| think.png | 考える人のイラスト | https://www.irasutoya.com/2014/02/blog-post_28.html |
+| thumbs_up.png | 親指を立てた両手のマッサージのマーク | https://www.irasutoya.com/2014/05/blog-post_9730.html |
+| ticket.png | 回数券のイラスト | https://www.irasutoya.com/2018/08/blog-post_9.html |
+| tiger.png | 虎のキャラクター | https://www.irasutoya.com/2017/09/blog-post_479.html |
+| trash.png | ゴミ箱のイラスト | https://www.irasutoya.com/2013/03/blog-post_9836.html |
+| tree.png | 白樺の木のイラスト | https://www.irasutoya.com/2018/08/blog-post_19.html |
+| trophy.png | 優勝カップを持った男の子のイラスト | https://www.irasutoya.com/2013/09/blog-post_3570.html |
+| turtle.png | ウミガメのイラスト | https://www.irasutoya.com/2013/08/blog-post_10.html |
+| video.png | ビデオカメラのイラスト | https://www.irasutoya.com/2014/09/blog-post_467.html |
+| warning.png | 注意のマーク | https://www.irasutoya.com/2014/05/blog-post_2203.html |
+| watermelon.png | 丸いスイカのイラスト | https://www.irasutoya.com/2020/09/blog-post_808.html |
+| wave.png | いろいろな波のイラスト | https://www.irasutoya.com/2020/09/blog-post_66.html |
+| yashinoki.png | ヤシの木のイラスト | https://www.irasutoya.com/2012/03/blog-post_9767.html |

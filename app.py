@@ -17,7 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.app_core import fonts, start_warmup
-from src.share import allowed_views, current_user, gate, is_visitor, owner_page, user_bar
+from src.share import allowed_views, current_user, gate, is_visitor, owner_page, state, user_bar
 
 st.set_page_config(page_title="Semak Pantun · Cenderawasih", page_icon=":material/menu_book:",
                    layout="wide")
@@ -41,6 +41,9 @@ home = allowed[0] if current_user()["kind"] == "member" else "pelajar"
 by_view = {v: st.Page(VIEWS[v][0], title=VIEWS[v][1], icon=VIEWS[v][2], default=(v == "pelajar"))
            for v in ["pelajar", "pensyarah", "penyelidik"] if v in allowed}
 pages = list(by_view.values())
+if not is_visitor() or state()["tester_open"]:   # visitors see the tester form only while the owner has it open
+    pages.append(st.Page("app_pages/penguji.py", title="Borang Penguji", icon=":material/rate_review:",
+                         url_path="penguji"))
 if not is_visitor():   # only on this computer: members, guest code, devices and log
     pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
 nav = st.navigation(pages, position="top")

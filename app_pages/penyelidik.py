@@ -13,6 +13,7 @@ import pandas as pd
 import streamlit as st
 from scipy.stats import gaussian_kde
 
+from src import illus
 from src.app_core import (DECISIONS_CSV, EXAMPLES, FLAGS_CSV, GOLD, LEAN_ENGLISH, MODEL_BY_SHORT, MODEL_LABEL,
                           RATINGS_CSV, RESULTS, TEAL, analyse, baselines, check_lines, help_button, load_calibration,
                           load_corpus, load_result_table, read_log, reference, ready_models, save_rating,
@@ -150,6 +151,7 @@ open_items = [q for q in queue if tuple(q["lines"]) not in rated_keys]
 tab_a, tab_f, tab_q, tab_m = st.tabs(["Analyse a pantun", "Findings", f"Expert queue ({len(open_items)})", "Method"])
 
 with tab_a:
+    illus.stage("analyse", "Analyse a Pantun", "Every model, every number, in the open.", "Research lab")
     with st.container(horizontal=True, vertical_alignment="center"):
         st.caption("Examples:")
         for name in EXAMPLES:
@@ -168,6 +170,7 @@ with tab_a:
         analysis(st.session_state["r_result"])
 
 with tab_f:
+    illus.stage("findings", "Findings", "The full evaluation behind the scores.", "What we learned")
     test = load_calibration()["held_out_test"]
     with st.container(horizontal=True):
         st.metric("Rhyme rule AUC", "0.99", border=True, help="Real vs random pairings, all 10,907 pantun")
@@ -201,8 +204,9 @@ with tab_f:
     st.caption("Full analysis: notebooks/evaluation.ipynb")
 
 with tab_q:
+    illus.stage("queue", "Expert Queue", "Difficult pantun that lecturers sent for review.", "For experts")
     if not open_items:
-        st.info("No pantun waiting for an expert. Students and instructors can send pantun here.",
+        st.info("No pantun waiting for an expert. Lecturers send difficult cases here.",
                 icon=":material/inbox:")
     else:
         qdf = pd.DataFrame([{"From": q["from"], "Time": q["time"], "Line 1": q["lines"][0],
@@ -224,6 +228,7 @@ with tab_q:
                            file_name="expert_ratings.csv", icon=":material/download:")
 
 with tab_m:
+    illus.stage("method", "Method", "The models and rules, step by step.", "How it works")
     st.dataframe(pd.DataFrame([{"Model": MODEL_LABEL[m["short"]], "Hugging Face id": m["name"],
                                 "Input prefix": m["prefix"].replace("\n", " ") or "(none)"} for m in MODEL_BY_SHORT.values()]),
                  hide_index=True, alt="Models used")
@@ -239,11 +244,11 @@ with tab_m:
         "- **Reproduce:** `python -m src.build_corpus` → `python -m src.score` → `notebooks/evaluation.ipynb`.")
 
 tour("penyelidik", [
-    (".st-key-r_input", "Analyse a pantun 🔬", "Paste 4 lines or pick an example, then press <b>Analyse</b>."),
-    (".st-key-r_go", "Every number shown 📊",
+    (".st-key-r_input", "Analyse a pantun <img class=cz-i alt src=/app/static/i/microscope.png>", "Paste 4 lines or pick an example, then press <b>Analyse</b>."),
+    (".st-key-r_go", "Every number shown <img class=cz-i alt src=/app/static/i/chart.png>",
      "Overall result, <b>per-model scores</b>, where the pantun sits in the corpus, and the form and sound checks."),
-    ("[role='tablist']", "Findings, queue and method 🗂️",
-     "<b>Findings</b>: the full evaluation. <b>Expert queue</b>: pantun sent by students and instructors. "
+    ("[role='tablist']", "Findings, queue and method <img class=cz-i alt src=/app/static/i/folder.png>",
+     "<b>Findings</b>: the full evaluation. <b>Expert queue</b>: pantun lecturers sent on for review. "
      "<b>Method</b>: models and rules."),
-    (".st-key-help_penyelidik", "Tutorial video ▶️", "Press <b>How to use</b> any time to watch the video."),
+    (".st-key-help_penyelidik", "Tutorial video <img class=cz-i alt src=/app/static/i/play.png>", "Press <b>How to use</b> any time to watch the video."),
 ], lang="en")

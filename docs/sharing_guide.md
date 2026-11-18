@@ -500,6 +500,20 @@ Other rules that keep this safe:
   tell them apart); the second one is asked to write their full name (e.g. add their father's name).
   Usernames are always unique and not case-sensitive (`Aiman` = `aiman`).
 
+### 6B.5 Testing with friends (Kongsi → **🧪 Penguji**)
+1. Start `Start Demo.bat` and `Start Sharing.bat`.
+2. Switch on **Buka Borang Penguji kepada pelawat**. While it is off, only you can see the form.
+3. Under **Jemput penguji**, type your friend's name and a username, then **Cipta akaun penguji**. This makes a
+   Pensyarah account, because that role can open all three views. It can also see current guest inquiries, but not
+   other lecturers' classes.
+4. Copy the message (the password is shown once) and send it. The link is `/penguji`.
+5. Results arrive in the same tab: which tasks failed (worst first), star ratings, comments, and CSV downloads.
+
+**Penalaan skor** compares the Makna score with what testers think. It suggests a cut-off only after 20 pantun the
+testers were sure about, and it never changes the app by itself. A small friendly sample can mislead, so check any
+change on a separate set of pantun first. Answers are stored in `results/share.db`, with no IP address kept. A limit
+per network (5 forms and 60 ratings an hour, held in memory) stops an open link from filling the database.
+
 ---
 
 ## Part 6C · Access without an account (one setting: Tutup / Kod sahaja / Terbuka)

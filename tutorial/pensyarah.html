@@ -7,6 +7,8 @@
 <style>
   .viewport { position: absolute; left: 0; right: 0; top: 40px; bottom: 0; overflow: hidden; }
   .side { position: absolute; left: 0; top: 0; bottom: 0; width: 210px; background: var(--teal); color: #fff; padding: 22px 14px; }
+  .side { background: linear-gradient(180deg, #2F6BFF, #21B6E8) !important; }
+  .side .item.on { background: var(--gold) !important; color: var(--ink) !important; box-shadow: 0 3px 0 #D99400 !important; }
   .side .brand { display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 17px; margin: 0 6px 22px; }
   .side .item { padding: 10px 12px; border-radius: 9px; font-size: 15px; font-weight: 600; color: #d4e5e5; margin-bottom: 4px; }
   .side .item.on { background: rgba(255,255,255,.16); color: #fff; font-weight: 800; box-shadow: inset 3px 0 0 var(--gold); }
@@ -52,7 +54,7 @@
   .note { border: 1.5px solid var(--line); border-radius: 8px; height: 46px; padding: 8px 10px; font-size: 13.5px; color: var(--ink); }
   .note .ph { color: #9aa3a6; }
   .dbtn { margin-top: 9px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
-  .dbtn.a { background: var(--teal); color: #fff; } .dbtn.b { border: 1.5px solid var(--teal); color: var(--teal); }
+  .dbtn.a { background: #1E9A50; color: #fff; } .dbtn.b { border: 1.5px solid var(--teal); color: var(--teal); }
   .dbtn.c { border: 1.5px solid var(--orange); color: var(--orange); }
   .dbtn.press { filter: brightness(.85); transform: scale(.98); }
   .rep h2, .rq h2 { top: 22px; }
@@ -65,6 +67,42 @@
     font-size: 14px; font-weight: 700; display: flex; gap: 10px; align-items: center; box-shadow: 0 12px 26px rgba(0,0,0,.2); }
   .rq table { top: 100px; width: 840px; }
   .rq h4 { position: absolute; left: 0; font-size: 18px; }
+  .titlecard .chips > span { background: transparent; border-color: rgba(255,255,255,.35); color: #fff; }
+  .over { background: var(--cream); z-index: 6; opacity: 0; }
+  .dhero { position: absolute; left: 0; top: 12px; width: 880px; height: 108px; border-radius: 16px; color: #fff; padding: 15px 22px; overflow: hidden;
+    background: radial-gradient(70% 34px at 25% 100%, #79DB55 98%, transparent), radial-gradient(70% 42px at 85% 100%, #58C13B 98%, transparent), linear-gradient(180deg, #63D2FF, #DDF7FF); border: 3px solid #fff; }
+  
+  .dhero small { background: #fff; color: var(--ink); border-radius: 9px; padding: 1px 8px; font-size: 10.5px; font-weight: 900; } .dhero h3 { font: 800 25px/1.1 'Baloo 2', sans-serif; margin: 2px 0; color: #fff; -webkit-text-stroke: 4px #17324D; paint-order: stroke fill; } .dhero p { color: var(--ink); font-size: 12.5px; font-weight: 800; } .dhero p b { color: #D23C30; }
+  .dcast { position: absolute; right: 8px; bottom: 3px; display: flex; align-items: flex-end; gap: 1px; } .dcast img { height: 44px; width: 40px; object-fit: contain; }
+  .dk { position: absolute; left: 0; top: 130px; width: 880px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+  .dk div { position: relative; background: var(--c); border: 3px solid #fff; border-radius: 15px; padding: 5px 10px; overflow: hidden; font-size: 11.5px; font-weight: 900; color: #fff; box-shadow: 0 3px 0 rgba(23,50,77,.2); }
+    .dk b { display: block; color: #fff; font: 800 24px/1.1 'Baloo 2', sans-serif; }
+  .da { position: absolute; left: 0; top: 199px; width: 880px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .da div { height: 36px; display: grid; place-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 11px; font-size: 13px; font-weight: 700; }
+  .da div.press { background: var(--mint); border-color: var(--teal); }
+  .dc { position: absolute; background: #fff; border: 1.5px solid var(--line); border-radius: 13px; padding: 10px 13px; font-size: 12.5px; }
+  .dc h5 { font-size: 14px; margin-bottom: 5px; }
+  .dit { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid #F0EADC; color: var(--muted); }
+  .dit:first-of-type { border-top: 0; } .dit b { color: var(--ink); } .dit i { font: 13px 'Lora', serif; color: var(--teal2); display: block; }
+  .av { flex: none; width: 27px; height: 27px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 800; background: var(--c, var(--teal)); }
+  .dcls { display: flex; gap: 9px; margin-top: 3px; } .dcls > div { flex: 1; border-top: 4px solid var(--gold); background: #FFFDF8; border-radius: 9px; padding: 6px 9px; }
+  .dcls b { color: var(--teal); display: block; } .dcls code { color: var(--teal); background: var(--mint); border-radius: 5px; padding: 1px 6px; font: 600 11px 'JetBrains Mono'; letter-spacing: .1em; }
+  .poem { font: 13.5px/1.45 'Lora', serif; background: var(--paper); border-left: 3px solid var(--gold); border-radius: 8px; padding: 7px 10px; }
+  .tb { display: flex; align-items: flex-end; gap: 4px; height: 44px; } .tb i { flex: 1; background: var(--teal); border-radius: 3px 3px 0 0; }
+  .form2 { position: absolute; left: 0; top: 72px; width: 880px; background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 15px; font-size: 13.5px; font-weight: 600; }
+  .form2 .ii { display: inline-block; vertical-align: middle; width: 640px; height: 36px; border: 1.5px solid var(--line); border-radius: 8px; padding: 7px 10px; margin-top: 5px; font-weight: 500; background: #FDFBF6; }
+  .form2 .bb { display: inline-grid; vertical-align: middle; place-items: center; margin: 5px 0 0 12px; width: 180px; height: 36px; border-radius: 99px; background: #1E9A50; color: #fff; font-weight: 800; }
+  .form2 .bb.press, .send2.press { filter: brightness(.82); }
+  .okb { position: absolute; left: 0; top: 168px; width: 880px; background: #E6F2EA; color: var(--green); border-radius: 9px; padding: 8px 13px; font-size: 14px; font-weight: 700; opacity: 0; }
+  .cc { position: absolute; left: 0; top: 214px; width: 880px; background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 15px; opacity: 0; font-size: 13.5px; }
+  .cc h4 { font-size: 16px; } .bigc { position: absolute; right: 15px; top: 11px; background: var(--mint); color: var(--teal); border-radius: 8px; padding: 6px 13px; font: 600 20px 'JetBrains Mono'; letter-spacing: .14em; }
+  .tgl { margin: 8px 0 7px; color: var(--muted); } .tgl i { display: inline-block; vertical-align: -3px; width: 30px; height: 16px; border-radius: 9px; background: var(--teal); margin-right: 7px; }
+  .st { display: flex; align-items: center; gap: 9px; border-top: 1px solid #F0EADC; padding: 6px 0; } .st span { margin-left: auto; color: var(--teal); font-weight: 600; font-size: 12.5px; }
+  .tog2 { position: absolute; left: 0; top: 62px; font-size: 13.5px; color: var(--muted); } .tog2 i { display: inline-block; vertical-align: -3px; width: 30px; height: 16px; border-radius: 9px; background: #C9C2B2; margin-right: 7px; }
+  .rq table.q { top: 90px; width: 880px; } .q tr.gone td { opacity: .25; }
+  .det { position: absolute; left: 0; top: 196px; width: 880px; background: #fff; border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 15px; display: grid; grid-template-columns: 340px 1fr; gap: 18px; opacity: 0; font-size: 13.5px; }
+  .det .rep2 { border: 1.5px solid var(--line); border-radius: 8px; height: 66px; padding: 8px; margin: 5px 0 9px; background: #FDFBF6; }
+  .send2 { height: 36px; display: grid; place-items: center; border-radius: 99px; background: #1E9A50; color: #fff; font-weight: 800; }
 </style>
 </head>
 <body>
@@ -72,14 +110,16 @@
   <div id="step"></div>
   <div class="window">
     <div class="chrome"><i style="background:#EC6A5E"></i><i style="background:#F4BF4F"></i><i style="background:#61C554"></i>
-      <div class="url">🔒 localhost:8501 · Pensyarah</div></div>
+      <div class="url"><img class=ic src=../static/i/lock.png> localhost:8501 · Pensyarah</div></div>
     <div class="viewport">
       <div class="tag">Contoh data</div>
       <div class="side">
         <div class="brand"><span class="dot"></span>Cenderawasih</div>
-        <div class="item" id="m1">📚 Kelas saya</div>
-        <div class="item" id="m2">📝 Semakan</div>
-        <div class="item" id="m3">📊 Laporan</div>
+        <div class="item" id="m1"><img class=ic src=../static/i/home.png> Papan pemuka</div>
+        <div class="item" id="m2"><img class=ic src=../static/i/book.png> Kelas saya</div>
+        <div class="item" id="m3"><img class=ic src=../static/i/school.png> Kod kelas &amp; pelajar</div>
+        <div class="item" id="m4"><img class=ic src=../static/i/notebook.png> Semakan</div>
+        <div class="item" id="m5"><img class=ic src=../static/i/chart.png> Laporan</div>
         <div class="snote">Sistem membantu; pensyarah membuat keputusan akhir.</div>
       </div>
 
@@ -87,8 +127,8 @@
       <div class="panel" id="pClass">
         <h2>Kelas BM2 · Pantun Nasihat</h2>
         <div class="meta" id="meta">Belum ada hantaran</div>
-        <div class="exp" id="exp"><div class="b">⬇ Eksport CSV</div><div class="b">📄 Eksport PDF</div></div>
-        <div class="drop" id="drop">⬆ Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b></div>
+        <div class="exp" id="exp"><div class="b"><img class=ic src=../static/i/arrow_down.png> Eksport CSV</div><div class="b"><img class=ic src=../static/i/paper.png> Eksport PDF</div></div>
+        <div class="drop" id="drop"><img class=ic src=../static/i/arrow_up.png> Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b></div>
         <div class="bar" id="bar">Menyemak pantun kelas… <span id="barn">0</span>/14<div><i id="bari"></i></div></div>
         <div class="cards" id="cards">
           <div class="metric" id="k1"><b id="n1">0</b><span>pantun disemak</span></div>
@@ -108,7 +148,7 @@
         </table>
         <div class="review" id="review">
           <h3 id="rvh">Semak</h3>
-          <div class="empty" id="rvEmpty">👆 Pilih pantun dalam senarai untuk menyemak.</div>
+          <div class="empty" id="rvEmpty"><img class=ic src=../static/i/raise_hand.png> Pilih pantun dalam senarai untuk menyemak.</div>
           <div class="rv" id="rvA">
             <div class="pc"><span class="pb">Kalau tuan pandai menyimpai,<br>Cubalah simpai taruk berturang;</span><br>
               <span class="mk">Kalau tuan pandai mengungkai,<br>Cubalah ungkai di tangan orang.</span></div>
@@ -151,24 +191,47 @@
           <div class="row"><span>▼ Tidak sepadan</span><i id="b7" style="background:var(--gold);width:28px"></i>1</div>
         </div>
         <div style="position:absolute;left:0;top:390px;font-weight:700;font-size:15px">Muat turun keputusan kelas</div>
-        <div class="exp" style="left:0;top:420px"><div class="b">⬇ Eksport CSV</div><div class="b" id="bPdf">📄 Eksport PDF</div></div>
-        <div class="toast" id="toast">📄 keputusan_kelas.pdf dimuat turun</div>
+        <div class="exp" style="left:0;top:420px"><div class="b"><img class=ic src=../static/i/arrow_down.png> Eksport CSV</div><div class="b" id="bPdf"><img class=ic src=../static/i/paper.png> Eksport PDF</div></div>
+        <div class="toast" id="toast"><img class=ic src=../static/i/paper.png> keputusan_kelas.pdf dimuat turun</div>
       </div>
 
       <!-- Semakan -->
       <div class="panel rq" id="pReq">
-        <h2>Permintaan semakan daripada pelajar</h2>
-        <table style="top:70px">
-          <tr><th>Masa</th><th>Pelajar</th><th>Baris 1</th><th>Komen</th><th>Bunyi</th><th>Makna</th></tr>
-          <tr><td>10:41</td><td>Aina</td><td>Pisang emas dibawa belayar,</td><td>Saya rasa pembayang sepadan</td><td>10</td><td>57%</td></tr>
-          <tr><td>10:44</td><td>Haziq</td><td>Burung serindit terbang melayang,</td><td>Kenapa makna rendah?</td><td>10</td><td>49%</td></tr>
+        <h2>Pertanyaan 'Saya tidak setuju'</h2>
+        <div class="tog2"><i></i>Tunjuk yang sudah dijawab</div>
+        <table class="q" id="qT">
+          <tr><th>Masa</th><th>Daripada</th><th>Jenis</th><th>Kelas</th><th>Baris 1</th><th>Komen</th><th>Status</th></tr>
+          <tr id="q1"><td>10:41</td><td>Aina Sofea</td><td><img class=ic src=../static/i/backpack.png> Pelajar kelas</td><td>BM2</td><td>Pisang emas dibawa belayar,</td><td>Saya rasa sepadan</td><td id="qs"><img class=ic src=../static/i/hourglass.png> Baru</td></tr>
+          <tr id="q2"><td>10:44</td><td>Haziq Danial</td><td><img class=ic src=../static/i/backpack.png> Pelajar kelas</td><td>BM2</td><td>Burung serindit terbang melayang,</td><td>Kenapa makna rendah?</td><td><img class=ic src=../static/i/hourglass.png> Baru</td></tr>
         </table>
-        <h4 style="top:200px">Log keputusan pensyarah</h4>
-        <table style="top:236px">
-          <tr><th>Masa</th><th>Kelas</th><th>Pelajar</th><th>Keputusan</th><th>Catatan</th></tr>
-          <tr><td>10:46</td><td>BM2</td><td>S004</td><td>✔ Setuju</td><td>Bagus, cuba kuatkan pembayang.</td></tr>
-          <tr><td>10:47</td><td>BM2</td><td>S013</td><td>⚑ Dihantar kepada pakar</td><td></td></tr>
-        </table>
+        <div class="det" id="det"><div><div class="pc"><span class="pb">Pisang emas dibawa belayar,<br>Masak sebiji di atas peti;</span><br><span class="mk">Hutang emas boleh dibayar,<br>Hutang budi dibawa mati.</span></div></div>
+          <div><b>Aina Sofea</b> · BM2 · Bunyi 10/10 · Makna 57%<div style="margin-top:7px;font-weight:600">Jawapan kepada pelajar</div><div class="rep2" id="rep2"><span></span></div><div class="send2" id="bDone">✔ Tandakan dijawab</div></div></div>
+        <div class="toast" id="toast2">✔ Pelajar nampak jawapan di Sejarah Saya</div>
+      </div>
+
+      <!-- Papan pemuka -->
+      <div class="panel over" id="pDash">
+        <div class="dhero" id="dHero"><small>Rabu, 18 November 2026</small><h3>Selamat pagi, Dr. Hasiah</h3><p><b>3 pertanyaan</b> pelajar sedang menunggu jawapan anda.</p><div class="dcast"><img src=../static/i/school.png><img src=../static/i/job_senesi.png><img src=../static/i/owl.png><img src=../static/i/raise_hand.png><img src=../static/i/student.png><img src=../static/i/group.png><img src=../static/i/megaphone.png><img src=../static/i/bell.png><img src=../static/i/chart.png><img src=../static/i/trophy.png></div></div>
+        <div class="dk" id="dK"><div style="--c:#2AA7E0"><b>2</b>kelas aktif</div><div style="--c:#9B5DE5"><b>28</b>pelajar</div><div class="hot" id="kWait" style="--c:#FF6B5E"><b>3</b>menunggu jawapan</div><div style="--c:#1E9A50"><b>12</b>pertanyaan dijawab</div><div style="--c:#F08A00"><b>14</b>keputusan direkod</div></div>
+        <div class="da" id="dA"><div><span><img class=ic src=../static/i/folder.png>Semak kelas</span></div><div id="aCode"><span><img class=ic src=../static/i/gift.png>Cipta kelas &amp; kod</span></div><div><span><img class=ic src=../static/i/raise_hand.png>Jawab pertanyaan</span></div><div><span><img class=ic src=../static/i/chart.png>Lihat laporan</span></div></div>
+        <div class="dc" id="dW" style="left:0;top:246px;width:530px;height:150px"><h5><img class=ic src=../static/i/raise_hand.png> Perlu perhatian anda</h5>
+          <div class="dit"><span class="av" style="--c:#8A4B1C">AS</span><div><b>Aina Sofea</b> · BM2 · 12 min lalu<i>Pisang emas dibawa belayar,</i></div></div>
+          <div class="dit"><span class="av">HD</span><div><b>Haziq Danial</b> · BM2 · 3 jam lalu<i>Burung serindit terbang melayang,</i></div></div></div>
+        <div class="dc" id="dC" style="left:0;top:404px;width:530px;height:100px"><h5><img class=ic src=../static/i/school.png> Kelas saya</h5><div class="dcls"><div><b>BM2 · Pantun Nasihat</b><code>K7QM2X</code> · 16 pelajar</div><div><b>BM3 · Pantun Budi</b><code>H4TN8P</code> · 12 pelajar</div></div></div>
+        <div class="dc" id="dP" style="left:540px;top:246px;width:340px;height:132px"><h5><img class=ic src=../static/i/hibiscus.png> Pantun hari ini</h5><div class="poem"><span class="pb">Pisang emas dibawa belayar,<br>Masak sebiji di atas peti;</span><br><span class="mk">Hutang emas boleh dibayar,<br>Hutang budi dibawa mati.</span></div></div>
+        <div class="dc" id="dT" style="left:540px;top:386px;width:340px;height:118px"><h5><img class=ic src=../static/i/chart.png> Pertanyaan, 14 hari</h5><div class="tb"><i style="height:8%"></i><i style="height:30%"></i><i style="height:8%"></i><i style="height:55%"></i><i style="height:20%"></i><i style="height:8%"></i><i style="height:42%"></i><i style="height:70%"></i><i style="height:8%"></i><i style="height:35%"></i><i style="height:50%"></i><i style="height:8%"></i><i style="height:60%"></i><i style="height:100%;background:var(--gold)"></i></div></div>
+      </div>
+
+      <!-- Kod kelas -->
+      <div class="panel over" id="pCodes">
+        <h2>Kod kelas &amp; pelajar</h2>
+        <div class="form2" id="fNew">Nama kelas baharu<br><div class="ii" id="cName"><span></span></div><div class="bb" id="bNew">+ Cipta kelas</div></div>
+        <div class="okb" id="okb">✔ Kelas dicipta. Kod: K7QM2X</div>
+        <div class="cc" id="cCard"><h4>BM2 · Pantun Nasihat <span style="color:var(--muted);font-weight:500">· 3 pelajar</span></h4><div class="bigc" id="bigc">K7QM2X</div>
+          <div class="tgl"><i></i>Pelajar baharu boleh menyertai dengan kod ini</div>
+          <div id="stu"><div class="st"><b>Aina Sofea</b> aina.s<span><img class=ic src=../static/i/key.png> Kata laluan sementara &nbsp; ✖ Keluarkan dari kelas</span></div>
+          <div class="st"><b>Haziq Danial</b> haziq<span><img class=ic src=../static/i/key.png> Kata laluan sementara &nbsp; ✖ Keluarkan dari kelas</span></div>
+          <div class="st"><b>Nur Iman</b> nur<span><img class=ic src=../static/i/key.png> Kata laluan sementara &nbsp; ✖ Keluarkan dari kelas</span></div></div></div>
       </div>
     </div>
   </div>
@@ -179,8 +242,8 @@
     <div class="songket" style="top:0"></div>
     <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
     <h1>Cara guna: Pensyarah</h1>
-    <p>Semak pantun seluruh kelas dari satu halaman</p>
-    <div class="chips" style="position:static"><span>📤 Muat naik</span><span>🗂️ Senarai kerja</span><span>✔ Keputusan</span><span>📄 Eksport</span></div>
+    <p>Urus kelas, semak pantun dan jawab pelajar</p>
+    <div class="chips" style="position:static"><span><img class=ic src=../static/i/home.png> Papan pemuka</span><span><img class=ic src=../static/i/school.png> Kod kelas</span><span><img class=ic src=../static/i/folder.png> Semak kelas</span><span><img class=ic src=../static/i/mail.png> Jawab</span></div>
     <div class="songket" style="bottom:0"></div>
   </div>
   <div class="titlecard" id="outro">
@@ -200,7 +263,7 @@
 
 <script src="stage.js"></script>
 <script>
-const D = 59;
+const D = 89;
 const lin = "linear";
 const frac = (a, b) => (t) => (t - a) / (b - a);
 
@@ -210,15 +273,39 @@ pop("#intro h1", 0.5, 0.7); show("#intro p", 1.0);
 document.querySelectorAll("#intro .chips span").forEach((s, i) => pop(s, 1.4 + i * 0.18));
 at("#intro", 3.6, 0.6, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(1.06)" }], "ease-in");
 at(".window", 3.6, 0.8, [{ opacity: 0, transform: "translateY(30px) scale(.97)" }, { opacity: 1, transform: "none" }]);
-at("#outro", 54.4, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
-pop("#outro h1", 54.8, 0.7); show("#outro p", 55.3);
+at("#outro", 84.4, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
+pop("#outro h1", 84.8, 0.7); show("#outro p", 85.3);
+
+// New scenes, in real video time: Papan pemuka (4-15) and Kod kelas (15-26)
+at("#pDash", 3.9, 11.3, [{ opacity: 1 }, { opacity: 1, offset: .975 }, { opacity: 0 }], "linear");
+["#dHero", "#dK", "#dA", "#dW", "#dC", "#dP", "#dT"].forEach((e, i) => show(e, 4.5 + i * .13));
+classBetween("#aCode", "press", 14.4, 14.7);
+at("#pCodes", 14.9, 11.0, [{ opacity: 0 }, { opacity: 1, offset: .03 }, { opacity: 1, offset: .97 }, { opacity: 0 }], "linear");
+typeText("#cName span", "BM2 · Pantun Nasihat", 16.1, 18);
+classBetween("#bNew", "press", 17.9, 18.15);
+at("#okb", 18.2, .35, [{ opacity: 0 }, { opacity: 1 }], "ease"); pop("#cCard", 18.3);
+at("#cCard", 18.3, .1, [{ opacity: 0 }, { opacity: 1 }], "linear");
+
+// Semakan: pick an inquiry, reply, mark it answered
+at("#det", 74.4, .4, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }]);
+at("#det", 80.5, .3, [{ opacity: 1 }, { opacity: 0 }], "ease");
+classBetween("#q1", "sel", 74.3, 80.4); classBetween("#q1", "gone", 80.5); classBetween("#bDone", "press", 80.1, 80.35);
+typeText("#rep2 span", "Pembayang anda sudah baik, cuba kuatkan kiasan.", 76.7, 17);
+T.handlers.push((t) => { document.querySelector("#qs").textContent = t < 80.4 ? "Baru" : "Dijawab"; });
+at("#toast2", 80.6, 3.4, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .9 }, { opacity: 0 }], "linear");
+
+T.shift = 22;       // everything down to "steps" is the class-checking scene, 22 s later than it first was
+
 
 // Panels: Kelas saya (to 41.9) -> Laporan (41.9-50.4) -> Semakan (50.4-)
 at("#pClass", 41.9, 0.4, [{ opacity: 1 }, { opacity: 0 }], "ease");
 { const f = frac(41.9, 50.8);
   at("#pReport", 41.9, 8.9, [{ opacity: 0 }, { opacity: 1, offset: f(42.3) }, { opacity: 1, offset: f(50.4) }, { opacity: 0 }], lin); }
 at("#pReq", 50.4, 0.4, [{ opacity: 0 }, { opacity: 1 }], "ease");
-classBetween("#m1", "on", 0, 41.9); classBetween("#m3", "on", 41.9, 50.4); classBetween("#m2", "on", 50.4);
+T.shift = 0;
+classBetween("#m1", "on", 0, 15); classBetween("#m3", "on", 15, 26); classBetween("#m2", "on", 26, 63.9);
+classBetween("#m5", "on", 63.9, 72.4); classBetween("#m4", "on", 72.4);
+T.shift = 22;
 
 // 1: drag the CSV in, progress bar
 { const f = frac(4.8, 7.2);
@@ -230,15 +317,15 @@ classBetween("#drop", "hot", 6.0, 7.1);
   at("#bar", 7.0, 2.8, [{ opacity: 0 }, { opacity: 1, offset: f(7.2) }, { opacity: 1, offset: f(9.5) }, { opacity: 0 }], lin); }
 at("#bari", 7.2, 2.2, [{ width: "0%" }, { width: "100%" }], "ease-in-out");
 countUp("#barn", 14, 7.2, 2.2);
-T.handlers.push((t) => { document.querySelector("#drop").innerHTML = t < 9.6 ? "⬆ Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b>" : "✔ kelas_BM2.csv · 14 pantun disemak"; });
-T.handlers.push((t) => { document.querySelector("#meta").textContent = t < 9.7 ? "Belum ada hantaran" : "14 hantaran · dikemas kini 10:42"; });
+on((t) => { document.querySelector("#drop").innerHTML = t < 9.6 ? "<img class=ic src=../static/i/arrow_up.png> Seret fail CSV kelas ke sini (ID pelajar, baris 1–4) atau <b>&nbsp;pilih fail</b>" : "✔ kelas_BM2.csv · 14 pantun disemak"; });
+on((t) => { document.querySelector("#meta").textContent = t < 9.7 ? "Belum ada hantaran" : "14 hantaran · dikemas kini 10:42"; });
 
 // 2: cards and table
 show("#cards", 9.8); show("#chips", 10.1);
 countUp("#n1", 14, 10.0, 1.0); countUp("#n2", 9, 10.1, 1.0);
-T.handlers.push((t) => { document.querySelector("#n3").textContent = t < 39.3 ? "0" : "1"; });
-T.handlers.push((t) => { document.querySelector("#n4").textContent = t < 34.2 ? "—" : "0.6 min"; });
-T.handlers.push((t) => { document.querySelector("#nrev").textContent = t < 34.2 ? "14" : t < 39.3 ? "13" : "12"; });
+on((t) => { document.querySelector("#n3").textContent = t < 39.3 ? "0" : "1"; });
+on((t) => { document.querySelector("#n4").textContent = t < 34.2 ? "—" : "0.6 min"; });
+on((t) => { document.querySelector("#nrev").textContent = t < 34.2 ? "14" : t < 39.3 ? "13" : "12"; });
 show("#tbl", 10.2);
 for (let i = 1; i <= 6; i++) show(`#r${i}`, 10.4 + i * 0.12, 0.4, 8);
 
@@ -249,16 +336,16 @@ at("#rvEmpty", 20.9, 0.3, [{ opacity: 1 }, { opacity: 0 }], "ease");
   at("#rvA", 20.9, 16.9, [{ opacity: 0, transform: "translateX(18px)" }, { opacity: 1, transform: "none", offset: f(21.4) },
     { opacity: 1, transform: "none", offset: f(37.4) }, { opacity: 0, transform: "none" }], lin); }
 at("#rvB", 37.5, 0.5, [{ opacity: 0, transform: "translateX(18px)" }, { opacity: 1, transform: "none" }]);
-T.handlers.push((t) => { document.querySelector("#rvh").textContent = t < 20.9 ? "Semak" : t < 37.5 ? "Semak: S004" : "Semak: S013"; });
+on((t) => { document.querySelector("#rvh").textContent = t < 20.9 ? "Semak" : t < 37.5 ? "Semak: S004" : "Semak: S013"; });
 typeText("#noteA", "Bagus, cuba kuatkan pembayang.", 26.6, 18);
 classBetween("#phA", "hidden-ph", 26.6);
-T.handlers.push((t) => { document.querySelector("#phA").style.display = t < 26.6 ? "" : "none"; });
+on((t) => { document.querySelector("#phA").style.display = t < 26.6 ? "" : "none"; });
 
 // 4: decisions
 classBetween("#bAgree", "press", 34.0, 34.25);
-T.handlers.push((t) => { const c = document.querySelector("#dec3"); c.textContent = t < 34.1 ? "—" : "✔ Setuju"; c.className = t < 34.1 ? "" : "ok"; });
+on((t) => { const c = document.querySelector("#dec3"); c.textContent = t < 34.1 ? "—" : "✔ Setuju"; c.className = t < 34.1 ? "" : "ok"; });
 classBetween("#bExpert", "press", 39.2, 39.45);
-T.handlers.push((t) => { const c = document.querySelector("#dec5"); c.textContent = t < 39.3 ? "—" : "⚑ Kepada pakar"; c.className = t < 39.3 ? "" : "lean"; });
+on((t) => { const c = document.querySelector("#dec5"); c.textContent = t < 39.3 ? "—" : "⚑ Kepada pakar"; c.className = t < 39.3 ? "" : "lean"; });
 
 // 5: report bars, PDF export
 ["#b1", "#b2", "#b3", "#b4", "#b5", "#b6", "#b7"].forEach((b, i) =>
@@ -268,63 +355,69 @@ classBetween("#bPdf", "press", 46.4, 46.65);
   at("#toast", 46.6, 3.6, [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "none", offset: f(47.0) },
     { opacity: 1, transform: "none", offset: f(49.8) }, { opacity: 0, transform: "none" }], lin); }
 
+T.shift = 0;
+const S = 22, one = (l) => l.map(([t, ...r]) => [t + S, ...r]), two = (l) => l.map(([a, b, ...r]) => [a + S, b + S, ...r]);
+
 steps([
-  [4.0, 12.0, "1", "Muat naik kelas"],
-  [12.0, 20.4, "2", "Senarai kerja"],
-  [20.4, 30.0, "3", "Pilih & semak"],
-  [30.0, 41.4, "4", "Buat keputusan"],
-  [41.4, 50.2, "5", "Laporan & eksport"],
-  [50.2, 54.4, "6", "Permintaan pelajar"],
+  [4.0, 15.0, "1", "Papan pemuka"],
+  [15.0, 26.0, "2", "Kod kelas & pelajar"],
+  ...two([[4.0, 12.0, "3", "Muat naik kelas"], [12.0, 20.4, "4", "Senarai kerja"], [20.4, 30.0, "5", "Pilih & semak"],
+          [30.0, 41.4, "6", "Buat keputusan"], [41.4, 50.2, "7", "Laporan & eksport"]]),
+  [72.2, 84.4, "8", "Jawab pertanyaan"],
 ]);
 
 cursor([
-  [4.4, [900, 420]],
-  [5.4, [1060, 335]],
-  [5.6, [1060, 335], true],
-  [6.9, [500, 200]],
-  [8.0, [520, 260]],
-  [20.2, [520, 470]],
-  [20.8, "#r3", true],
-  [23.0, [1020, 360]],
-  [26.0, "#noteA"],
-  [26.2, "#noteA", true],
-  [33.2, "#bAgree"],
-  [34.0, "#bAgree", true],
-  [36.8, "#r5"],
-  [37.4, "#r5", true],
-  [38.6, "#bExpert"],
-  [39.2, "#bExpert", true],
-  [41.0, "#m3"],
-  [41.8, "#m3", true],
-  [45.8, "#bPdf"],
-  [46.4, "#bPdf", true],
-  [49.8, "#m2"],
-  [50.3, "#m2", true],
-  [53.8, [700, 420]],
+  [4.4, [900, 300]],
+  [13.6, "#aCode"],
+  [14.4, "#aCode", true],
+  [15.5, "#cName"],
+  [15.9, "#cName", true],
+  [17.4, "#bNew"],
+  [17.9, "#bNew", true],
+  [19.6, "#bigc"],
+  [25.4, [1000, 420]],
+  ...one([[5.4, [1060, 335]], [5.6, [1060, 335], true], [6.9, [500, 200]], [8.0, [520, 260]], [20.2, [520, 470]], [20.8, "#r3", true],
+          [23.0, [1020, 360]], [26.0, "#noteA"], [26.2, "#noteA", true], [33.2, "#bAgree"], [34.0, "#bAgree", true], [36.8, "#r5"],
+          [37.4, "#r5", true], [38.6, "#bExpert"], [39.2, "#bExpert", true], [41.0, "#m5"], [41.8, "#m5", true], [45.8, "#bPdf"],
+          [46.4, "#bPdf", true], [49.8, "#m4"], [50.3, "#m4", true]]),
+  [73.6, "#q1"],
+  [74.3, "#q1", true],
+  [76.0, "#rep2"],
+  [76.3, "#rep2", true],
+  [79.6, "#bDone"],
+  [80.1, "#bDone", true],
+  [83.6, [700, 300]],
 ]);
 
 spotlight([
-  [4.4, 8.0, "#drop"],
-  [12.2, 16.0, "#cards"], [16.0, 20.0, "#ch1"],
-  [21.8, 25.9, "#rvA .pc, #rvA .facts"], [25.9, 29.8, "#rvA .note"],
-  [30.2, 33.4, "#rvA .dbtn"],
-  [42.6, 45.6, "#pReport .chart"],
-  [50.8, 54.2, "#pReq table"],
+  [5.6, 8.4, "#dHero, #dK"], [8.4, 11.4, "#dW"], [11.4, 14.4, "#dA"],
+  [15.6, 18.2, "#fNew"], [18.6, 22.0, "#bigc"], [22.0, 25.6, "#stu"],
+  ...two([[4.4, 8.0, "#drop"], [12.2, 16.0, "#cards"], [16.0, 20.0, "#ch1"], [21.8, 25.9, "#rvA .pc, #rvA .facts"], [25.9, 29.8, "#rvA .note"],
+          [30.2, 33.4, "#rvA .dbtn"], [42.6, 45.6, "#pReport .chart"]]),
+  [72.8, 74.2, "#qT"], [74.6, 76.2, "#det"], [76.2, 80.1, "#rep2, #bDone"],
 ]);
 
 captions([
-  [4.4, 8.0, "Seret fail <b>CSV kelas</b> (ID pelajar, baris 1–4) ke sini."],
-  [8.0, 11.8, "Sistem menyemak setiap pantun secara automatik."],
-  [12.2, 16.0, "Ringkasan kelas: disemak, gagal bentuk, dihantar kepada pakar."],
-  [16.0, 20.2, "<b>Perlu semakan</b>: kes yang belum diputuskan ditunjuk dahulu."],
-  [20.4, 25.9, "Pilih satu baris. Panel semakan tunjuk <b>bentuk, rima dan makna</b>."],
-  [25.9, 29.8, "Tulis <b>catatan</b> untuk pelajar (pilihan)."],
-  [30.2, 33.4, "Tiga pilihan: <b>Setuju</b>, <b>Ubah</b> atau <b>Hantar kepada pakar</b>."],
-  [33.6, 37.0, "Setiap keputusan <b>disimpan</b> bersama masa — untuk ukur MOV."],
-  [37.2, 41.2, "Kes sukar? <b>Hantar kepada pakar</b> untuk semakan lanjut."],
-  [42.4, 45.8, "<b>Laporan</b>: ringkasan bentuk dan makna seluruh kelas."],
-  [45.8, 50.0, "Eksport keputusan sebagai <b>CSV</b> atau <b>PDF</b>."],
-  [50.6, 54.2, "<b>Semakan</b>: permintaan “Saya tidak setuju” dan log keputusan."],
+  [4.6, 8.4, "<b>Papan pemuka</b>: gambaran kelas anda setiap hari."],
+  [8.4, 11.4, "Pertanyaan pelajar yang <b>menunggu jawapan</b> ditunjuk dahulu."],
+  [11.4, 14.8, "<b>Jalan pintas</b> terus ke kerja utama anda."],
+  [15.4, 18.3, "Namakan kelas. Sistem memberi <b>kod kelas</b> 6 aksara."],
+  [18.6, 22.0, "Beri <b>kod ini</b> kepada pelajar. Mereka daftar sendiri."],
+  [22.0, 25.8, "Urus pelajar: <b>kata laluan sementara</b> atau keluarkan."],
+  ...two([[4.4, 8.0, "<b>Kelas saya</b>: seret fail <b>CSV kelas</b> ke sini."], [8.0, 11.8, "Sistem menyemak setiap pantun secara automatik."],
+          [12.2, 16.0, "Ringkasan kelas: disemak, gagal bentuk, dihantar kepada pakar."],
+          [16.0, 20.2, "<b>Perlu semakan</b>: kes yang belum diputuskan ditunjuk dahulu."],
+          [20.4, 25.9, "Pilih satu baris. Panel semakan tunjuk <b>bentuk, rima dan makna</b>."],
+          [25.9, 29.8, "Tulis <b>catatan</b> untuk pelajar (pilihan)."],
+          [30.2, 33.4, "Tiga pilihan: <b>Setuju</b>, <b>Ubah</b> atau <b>Hantar kepada pakar</b>."],
+          [33.6, 37.0, "Setiap keputusan <b>disimpan</b> bersama masa — untuk ukur MOV."],
+          [37.2, 41.2, "Kes sukar? <b>Hantar kepada pakar</b> untuk semakan lanjut."],
+          [42.4, 45.8, "<b>Laporan</b>: ringkasan bentuk dan makna seluruh kelas."],
+          [45.8, 50.0, "Eksport keputusan sebagai <b>CSV</b> atau <b>PDF</b>."]]),
+  [72.8, 74.3, "<b>Semakan</b>: pertanyaan daripada pelajar kelas anda."],
+  [74.6, 76.2, "Pilih satu untuk melihat <b>pantun dan komen</b>."],
+  [76.4, 80.2, "Tulis jawapan, kemudian <b>Tandakan dijawab</b>."],
+  [80.6, 84.0, "Pelajar nampak jawapan anda di <b>Sejarah Saya</b>."],
 ]);
 
 start(D);

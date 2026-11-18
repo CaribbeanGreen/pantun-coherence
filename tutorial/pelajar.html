@@ -12,7 +12,7 @@
   .topbar nav { margin-left: auto; display: flex; gap: 30px; font-size: 16px; font-weight: 700; color: #cfe3e3; }
   .topbar nav span { padding: 6px 2px; }
   .topbar nav .on { color: #fff; border-bottom: 3px solid var(--gold); }
-  h2 { position: absolute; left: 40px; top: 90px; font-size: 32px; font-weight: 900; color: var(--teal); }
+  h2 { position: absolute; left: 40px; top: 84px; font: 800 36px/1.1 'Baloo 2', sans-serif; color: #fff; -webkit-text-stroke: 6px #17324D; paint-order: stroke fill; }
   .sub { position: absolute; left: 40px; top: 136px; font-size: 17px; color: var(--muted); }
   .col { position: absolute; left: 40px; top: 178px; width: 500px; }
   .lab { display: inline-block; border-radius: 10px; padding: 4px 12px; font-weight: 800; font-size: 14px; margin-bottom: 8px; }
@@ -51,6 +51,44 @@
   .toast { position: absolute; right: 30px; top: 80px; background: var(--green); color: #fff; padding: 12px 20px; border-radius: 14px;
     font-weight: 800; font-size: 16px; opacity: 0; box-shadow: 0 10px 24px rgba(47,125,79,.35); z-index: 30; }
   .confetti i { position: absolute; width: 9px; height: 14px; border-radius: 2px; opacity: 0; }
+  .card.good { position: relative; padding-right: 74px; }
+  .card.good img.buddy { position: absolute; right: 8px; bottom: 8px; width: 62px; }
+  .pop { position: absolute; left: 90px; bottom: 58px; width: 370px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px;
+    padding: 14px; box-shadow: 0 14px 30px rgba(0,0,0,.18); font-size: 14px; opacity: 0; z-index: 8; }
+  .pop label { display: block; font-weight: 800; margin-bottom: 4px; }
+  .pop .sel, .pop .area { border: 1.5px solid var(--line); border-radius: 9px; padding: 7px 10px; margin-bottom: 9px; background: #FDFBF6; }
+  .pop .area { height: 42px; color: #8b9397; }
+  .pop .send { background: var(--teal); color: #fff; border-radius: 99px; text-align: center; padding: 8px; font-weight: 800; }
+  .pop .send.pressed { filter: brightness(.82); }
+  .over { position: absolute; inset: 0; background: var(--cream); opacity: 0; z-index: 12; font-family: 'Nunito', sans-serif; }
+  .over .tb { position: relative; height: 60px; background: var(--teal); display: flex; align-items: center; padding: 0 36px; color: #fff; font-weight: 800; font-size: 19px; gap: 12px; }
+  .over .tb nav { margin-left: auto; display: flex; gap: 30px; font-size: 16px; color: #cfe3e3; }
+  .over .tb nav .on { color: #fff; border-bottom: 3px solid var(--gold); padding-bottom: 4px; }
+  .box2 { position: absolute; left: 40px; width: 1060px; background: #fff; border: 2px solid var(--line); border-radius: 16px; padding: 16px 20px; }
+  .box2 h4 { font-size: 18px; font-weight: 900; margin-bottom: 8px; }
+  .join { display: flex; gap: 10px; margin-top: 10px; }
+  .join div { border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 12px; color: #8b9397; flex: 1; }
+  .join b { background: var(--mint); color: var(--teal); border-radius: 99px; padding: 7px 18px; }
+  .box2 table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  .box2 th { text-align: left; background: var(--mint); color: var(--teal); padding: 7px 9px; }
+  .box2 td { padding: 8px 9px; border-top: 1px solid #EFE9DD; }
+  .sign { position: absolute; left: 290px; top: 12px; width: 560px; background: #fff; border-radius: 18px; border: 2px solid var(--line); padding: 14px 24px; }
+  .sign h3 { font-size: 23px; font-weight: 900; color: var(--teal); text-align: center; }
+  .stabs { display: flex; gap: 22px; border-bottom: 1.5px solid var(--line); margin: 7px 0 9px; font-weight: 800; color: var(--muted); font-size: 15px; }
+  .stabs .on { color: var(--teal); border-bottom: 3px solid var(--teal); padding-bottom: 4px; }
+  .sign .f { font-size: 13.5px; font-weight: 700; margin-top: 7px; }
+  .sign .i { height: 33px; border: 1.5px solid var(--line); border-radius: 9px; padding: 6px 10px; font-size: 14.5px; background: #FDFBF6; }
+  .sign .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #signGo { height: 40px; background: var(--teal); color: #fff; border-radius: 99px; display: grid; place-items: center; font-weight: 900; margin-top: 11px; }
+  #signGo.pressed { filter: brightness(.82); }
+  #cel { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(251,247,238,.72); opacity: 0; z-index: 3; }
+  #celCard { position: relative; width: 390px; background: #FFFBF1; border-radius: 26px; padding: 20px 28px; text-align: center; box-shadow: 0 24px 60px rgba(40,30,10,.3); border: 3px solid var(--gold); }
+  #celCard > img { width: 130px; display: block; margin: 0 auto; }
+  #celCard h3 { font-size: 30px; font-weight: 900; color: var(--teal); }
+  #celCard p { font-size: 16px; color: #45525a; }
+  .cone { position: absolute; top: 72px; width: 0; height: 0; border-left: 17px solid transparent; border-right: 17px solid transparent; border-bottom: 52px solid var(--gold); }
+  .cone.l { left: 42px; transform: rotate(38deg); } .cone.r { right: 42px; transform: rotate(-38deg); }
+  #bits i { position: absolute; width: 9px; height: 13px; border-radius: 2px; opacity: 0; }
 </style>
 </head>
 <body>
@@ -59,25 +97,25 @@
 
   <div class="window">
     <div class="chrome"><i style="background:#EC6A5E"></i><i style="background:#F4BF4F"></i><i style="background:#61C554"></i>
-      <div class="url">🔒 localhost:8501 · Pelajar</div></div>
+      <div class="url"><img class=ic src=../static/i/lock.png> localhost:8501 · Pelajar</div></div>
     <div class="viewport"><div class="page" id="page">
       <div class="topbar">
         <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
-        <nav><span class="on" id="t1">🔍 Semak Pantun</span><span id="t2">📘 Belajar Pantun</span><span id="t3">🕘 Sejarah Saya</span></nav>
+        <nav><span class="on" id="t1"><img class=ic src=../static/i/magnifier.png> Semak Pantun</span><span id="t2"><img class=ic src=../static/i/book_open_yoko.png> Belajar Pantun</span><span id="t3"><img class=ic src=../static/i/clock.png> Sejarah Saya</span></nav>
       </div>
       <div class="songket"></div>
-      <h2>Semak Pantun Anda ✨</h2>
+      <h2>Semak Pantun Anda <img class=ic src=../static/i/sparkle.png></h2>
       <div class="sub">Adakah pembayang dan maksud anda sepadan? Tulis 4 baris, kemudian tekan butang.</div>
 
       <div class="col">
-        <div class="lab p">🖼️ Pembayang · baris 1–2</div>
+        <div class="lab p"><img class=ic src=../static/i/yashinoki.png> Pembayang · baris 1–2</div>
         <div class="in" id="l1"><span></span></div>
         <div class="in" id="l2"><span></span></div>
         <div class="gap"></div>
-        <div class="lab m">💬 Maksud · baris 3–4</div>
+        <div class="lab m"><img class=ic src=../static/i/mail.png> Maksud · baris 3–4</div>
         <div class="in m" id="l3"><span></span></div>
         <div class="in m" id="l4"><span></span></div>
-        <div class="btn primary" id="go">🔍 Semak Pantun Saya</div>
+        <div class="btn primary" id="go"><img class=ic src=../static/i/magnifier.png> Semak Pantun Saya</div>
         <div class="ex">Tiada pantun? Cuba contoh: <b>Pisang emas</b> <b>Francis Light</b> <b>Pandai menyimpai</b></div>
       </div>
 
@@ -86,25 +124,48 @@
         <div class="loading" id="loading"><div class="spinner" id="spin"></div>Membaca pantun anda…</div>
         <div id="result" style="position:absolute;left:0;top:0;width:520px">
           <div id="res-top">
-            <div class="head"><small><span class="dot"></span>Hasil semakan</small><div>Bagus! Rima anda cantik 🎉</div></div>
+            <div class="head"><small><span class="dot"></span>Hasil semakan</small><div>Bagus! Rima anda cantik <img class=ic src=../static/i/cracker.png></div></div>
             <div class="songket"></div>
             <div class="dials" id="dials">
-              <div class="dial" id="d1"><div class="ring" id="r1"><div>10/10</div></div><b>🎵 Bunyi</b><span>Rima a-b-a-b</span></div>
-              <div class="dial" id="d2"><div class="ring" id="r2"><div>57%</div></div><b>💭 Makna</b><span>Tidak pasti</span></div>
-              <div class="dial" id="d3"><div class="ring" id="r3"><div>4/4</div></div><b>📋 Peraturan</b><span>Bentuk pantun</span></div>
+              <div class="dial" id="d1"><div class="ring" id="r1"><div>10/10</div></div><b><img class=ic src=../static/i/music.png> Bunyi</b><span>Rima a-b-a-b</span></div>
+              <div class="dial" id="d2"><div class="ring" id="r2"><div>57%</div></div><b><img class=ic src=../static/i/think.png> Makna</b><span>Tidak pasti</span></div>
+              <div class="dial" id="d3"><div class="ring" id="r3"><div>4/4</div></div><b><img class=ic src=../static/i/clipboard.png> Peraturan</b><span>Bentuk pantun</span></div>
             </div>
           </div>
           <div class="cards">
-            <div class="card good" id="c1"><h4>Apa yang anda buat dengan baik</h4>✅ 4 baris lengkap<br>✅ 8–12 suku kata<br>✅ Rima akhir -ar / -i<br>✅ Unsur alam</div>
-            <div class="card" id="c2"><h4>💡 Petua</h4>Perkataan <b>"dibawa"</b> muncul dalam kedua-dua bahagian. Itu satu petunjuk yang baik!</div>
+            <div class="card good" id="c1"><h4>Apa yang anda buat dengan baik</h4><img class=ic src=../static/i/ok_mark.png> 4 baris lengkap<br><img class=ic src=../static/i/ok_mark.png> 8–12 suku kata<br><img class=ic src=../static/i/ok_mark.png> Rima akhir -ar / -i<br><img class=ic src=../static/i/ok_mark.png> Unsur alam<img class="buddy" src="../static/i/gutspose_man.png" alt=""></div>
+            <div class="card" id="c2"><h4><img class=ic src=../static/i/bulb.png> Petua</h4>Perkataan <b>"dibawa"</b> muncul dalam kedua-dua bahagian. Itu satu petunjuk yang baik!</div>
           </div>
-          <div class="card remind" id="c3">🤝 <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud pantun anda tidak baik. Guru anda membuat keputusan akhir.</div>
-          <div class="btn" id="disagree">🙋 Saya tidak setuju — minta guru semak</div>
+          <div class="card remind" id="c3"><img class=ic src=../static/i/handshake.png> <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud pantun anda tidak baik. Guru anda membuat keputusan akhir.</div>
+          <div class="btn" id="disagree"><img class=ic src=../static/i/raise_hand.png> Saya tidak setuju — minta guru semak</div>
+          <div class="pop" id="pop"><label>Hantar kepada</label><div class="sel">BM2 · Pantun Nasihat · Dr. Hasiah ▾</div>
+            <label>Kenapa anda tidak setuju? (pilihan)</label><div class="area">Saya rasa pembayang sepadan…</div>
+            <div class="send" id="popSend">Hantar kepada guru</div></div>
         </div>
         <div class="confetti" id="confetti"></div>
       </div>
       <div class="toast" id="toast">✓ Dihantar kepada guru</div>
-    </div></div>
+    </div>
+      <div class="over" id="acct">
+        <div class="tb"><span class="dot"></span>Cenderawasih · Semak Pantun<nav><span><img class=ic src=../static/i/magnifier.png> Semak Pantun</span><span><img class=ic src=../static/i/book_open_yoko.png> Belajar Pantun</span><span class="on"><img class=ic src=../static/i/clock.png> Sejarah Saya</span></nav></div>
+        <div class="box2" id="myClass" style="top:86px"><h4><img class=ic src=../static/i/school.png> Kelas saya</h4>· <b>BM2 · Pantun Nasihat</b> (K7QM2X) · Dr. Hasiah
+          <div class="join"><div>Sertai kelas lain: kod kelas daripada pensyarah</div><b>Sertai</b></div></div>
+        <div class="box2" id="myAsk" style="top:236px"><h4><img class=ic src=../static/i/raise_hand.png> Pertanyaan saya</h4><table><tr><th>Masa</th><th>Baris 1</th><th>Komen saya</th><th>Status</th><th>Jawapan guru</th></tr>
+          <tr><td>10:41</td><td>Pisang emas dibawa belayar</td><td>Saya rasa pembayang sepadan</td><td style="color:var(--green);font-weight:800"><img class=ic src=../static/i/ok_mark.png> Dijawab</td><td>Pembayang anda sudah baik.</td></tr></table></div>
+      </div>
+      <div class="over" id="signup">
+        <div class="sign"><h3>Semak Pantun</h3>
+          <div class="stabs"><span><img class=ic src=../static/i/gutspose_man.png> Log masuk</span><span class="on"><img class=ic src=../static/i/notebook.png> Daftar</span></div>
+          <div style="font-size:14.5px;font-weight:800">Saya seorang: <img class=ic src=../static/i/ok_mark.png> <img class=ic src=../static/i/backpack.png> Pelajar &nbsp; <img class=ic src=../static/i/moon.png> <img class=ic src=../static/i/job_senesi.png> Pensyarah</div>
+          <div class="f">Nama penuh</div><div class="i" id="sf1"><span></span></div>
+          <div class="f">Nama pengguna</div><div class="i" id="sf2"><span></span></div>
+          <div class="two"><div><div class="f">Kata laluan</div><div class="i" id="sf3"><span></span></div></div><div><div class="f">Ulang kata laluan</div><div class="i" id="sf4"><span></span></div></div></div>
+          <div class="f">Kod kelas (pelajar sahaja)</div><div class="i" id="sf5"><span></span></div>
+          <div id="signGo">Daftar</div>
+        </div>
+        <div id="cel"><div id="celCard"><div class="cone l"></div><div class="cone r"></div><img src="../static/i/gutspose_man.png" alt=""><h3>Tahniah! <img class=ic src=../static/i/cracker.png></h3><p>Selamat datang, <b>Aina</b>! Akaun pelajar anda sudah sedia.</p><div id="bits"></div></div></div>
+      </div>
+    </div>
   </div>
 
   <div class="titlecard" id="intro">
@@ -112,12 +173,12 @@
     <div class="brand"><span class="dot"></span>Cenderawasih · Semak Pantun</div>
     <h1>Cara guna: Pelajar</h1>
     <p>Semak pantun anda dalam 4 langkah mudah</p>
-    <div class="chips"><span>✍️ Tulis</span><span>🔍 Semak</span><span>🎯 Baca hasil</span><span>🙋 Minta guru</span></div>
+    <div class="chips"><span><img class=ic src=../static/i/pencil.png> Tulis</span><span><img class=ic src=../static/i/magnifier.png> Semak</span><span><img class=ic src=../static/i/target.png> Baca hasil</span><span><img class=ic src=../static/i/raise_hand.png> Minta guru</span></div>
     <div class="songket" style="bottom:0"></div>
   </div>
   <div class="titlecard" id="outro">
     <div class="songket" style="top:0"></div>
-    <h1>Selamat mencuba! ✨</h1>
+    <h1>Selamat mencuba! <img class=ic src=../static/i/sparkle.png></h1>
     <p>Buka <b>Pelajar → Semak Pantun</b> dan tulis pantun pertama anda.</p>
     <div class="brand" style="margin-top:12px"><span class="dot"></span>Cenderawasih Sdn. Bhd.</div>
     <div class="songket" style="bottom:0"></div>
@@ -132,7 +193,7 @@
 
 <script src="stage.js"></script>
 <script>
-const D = 57;
+const D = 73;
 
 // Intro and outro
 at("#intro .brand", 0.2, 0.6, [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }]);
@@ -141,9 +202,9 @@ show("#intro p", 1.0);
 document.querySelectorAll("#intro .chips span").forEach((s, i) => pop(s, 1.4 + i * 0.18));
 at("#intro", 3.6, 0.6, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(1.06)" }], "ease-in");
 at(".window", 3.6, 0.8, [{ opacity: 0, transform: "translateY(30px) scale(.97)" }, { opacity: 1, transform: "none" }]);
-at("#outro", 52.2, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
-pop("#outro h1", 52.6, 0.7);
-show("#outro p", 53.1);
+at("#outro", 68.6, 0.7, [{ opacity: 0 }, { opacity: 1 }], "ease");
+pop("#outro h1", 69.0, 0.7);
+show("#outro p", 69.5);
 
 // 1-2: write the pantun
 const lines = ["Pisang emas dibawa belayar,", "Masak sebiji di atas peti;", "Hutang emas boleh dibayar,", "Hutang budi dibawa mati."];
@@ -193,7 +254,25 @@ at("#page", S0, SD, [
   { transform: "translateY(0)", easing: sc }, { transform: "translateY(-130px)", offset: o(29.5) },
   { transform: "translateY(-130px)", offset: o(35.8), easing: sc }, { transform: "translateY(-312px)", offset: o(36.7) },
   { transform: "translateY(-312px)", offset: o(44.4), easing: sc }, { transform: "translateY(0)" }], "linear");
-at("#toast", 42.3, 1.9, [{ opacity: 0, transform: "translateY(-10px)" }, { opacity: 1, transform: "none", offset: 0.2 },
+at("#pop", 42.0, 1.25, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none", offset: 0.2 },
+                       { opacity: 1, transform: "none", offset: 0.88 }, { opacity: 0, transform: "none" }], "linear");
+classBetween("#popSend", "pressed", 43.0, 43.25);
+at("#acct", 52.0, 8.2, [{ opacity: 0 }, { opacity: 1, offset: 0.05 }, { opacity: 1, offset: 0.96 }, { opacity: 0 }], "linear");
+at("#signup", 60.0, 8.8, [{ opacity: 0 }, { opacity: 1, offset: 0.04 }, { opacity: 1 }], "linear");
+[["#sf1 span", "Aina Sofea", 60.8], ["#sf2 span", "aina.s", 61.5], ["#sf3 span", "••••••••", 62.1], ["#sf4 span", "••••••••", 62.7], ["#sf5 span", "K7QM2X", 63.3]]
+  .forEach(([e, v, t]) => typeText(e, v, t, 20));
+classBetween("#signGo", "pressed", 64.4, 64.65);
+at("#cel", 64.6, 0.3, [{ opacity: 0 }, { opacity: 1 }], "ease");
+pop("#celCard", 64.65, 0.55);
+{ const b = document.querySelector("#bits"), c = ["#DEB251", "#0C525C", "#1B6E78", "#2F7D4F", "#F3D58E", "#B4443C", "#E07AA0"];
+  for (let i = 0; i < 44; i++) {
+    const e = document.createElement("i"), left = i % 2 === 0, x0 = left ? 62 : 318, a = ((i * 37) % 44) / 44 * 1.25 - 0.62;
+    const r = 110 + (i * 41) % 130, dx = Math.sin(a + (left ? -.45 : .45)) * r, dy = -Math.cos(a) * r;
+    e.style.background = c[i % c.length]; e.style.left = x0 + "px"; e.style.top = "72px"; b.appendChild(e);
+    at(e, 65.0 + (i % 4) * .03, 1.8, [{ opacity: 1, transform: "translate(0,0)" }, { opacity: 1, transform: `translate(${dx}px,${dy}px) rotate(${i * 31}deg)`, offset: .45 },
+      { opacity: 0, transform: `translate(${dx * 1.15}px,${dy + 190}px) rotate(${i * 67}deg)` }], "cubic-bezier(.2,.7,.4,1)");
+  } }
+at("#toast", 43.3, 1.5, [{ opacity: 0, transform: "translateY(-10px)" }, { opacity: 1, transform: "none", offset: 0.2 },
                          { opacity: 1, transform: "none", offset: 0.85 }, { opacity: 0, transform: "none" }], "linear");
 
 steps([
@@ -204,6 +283,8 @@ steps([
   [28.8, 35.6, "5", "Pujian & petua"],
   [35.6, 44.4, "6", "Tidak setuju?"],
   [44.4, 52.2, "7", "Belajar & Sejarah"],
+  [52.2, 60.0, "8", "Kelas & jawapan guru"],
+  [60.0, 68.6, "9", "Daftar akaun"],
 ]);
 
 cursor([
@@ -219,32 +300,45 @@ cursor([
   [41.4, [700, 470]],
   [41.9, "#disagree"],
   [42.0, "#disagree", true],
-  [43.0, "#disagree"],
+  [42.8, "#popSend"],
+  [43.0, "#popSend", true],
   [44.0, [900, 420]],
   [45.8, "#t2"],
   [48.2, "#t3"],
   [51.5, [1000, 300]],
+  [55.6, "#myAsk"],
+  [60.4, "#sf1"],
+  [60.6, "#sf1", true],
+  [63.9, "#signGo"],
+  [64.4, "#signGo", true],
+  [67.8, [1000, 300]],
 ]);
 
 spotlight([
   [19.4, 22.4, "#d1"], [22.4, 25.6, "#d2"], [25.6, 28.6, "#d3"],
   [29.9, 35.4, "#c1, #c2"],
-  [37.6, 40.6, "#c3"], [40.6, 43.9, "#disagree"],
+  [37.6, 40.6, "#c3"], [40.6, 41.9, "#disagree"], [41.9, 43.2, "#pop"],
   [45.6, 48.4, "#t2"], [48.4, 51.6, "#t3"],
+  [52.6, 56.0, "#myClass"], [56.0, 59.8, "#myAsk"],
+  [60.4, 64.2, ".sign"],
 ]);
 
 captions([
   [4.2, 9.5, "Baris 1–2 ialah <b>pembayang</b> — selalunya tentang alam."],
   [9.7, 14.4, "Baris 3–4 ialah <b>maksud</b> — pesanan sebenar pantun."],
   [14.7, 18.6, "Tekan <b>Semak Pantun Saya</b>. Hasil keluar dalam beberapa saat."],
-  [19.4, 22.4, "🎵 <b>Bunyi</b>: rima a-b-a-b (baris 1 & 3, baris 2 & 4)"],
-  [22.4, 25.6, "💭 <b>Makna</b>: ada tanda pembayang dan maksud sepadan?"],
-  [25.6, 28.6, "📋 <b>Peraturan</b>: 4 baris, 8–12 suku kata, rima, unsur alam"],
+  [19.4, 22.4, "<img class=ic src=../static/i/music.png> <b>Bunyi</b>: rima a-b-a-b (baris 1 & 3, baris 2 & 4)"],
+  [22.4, 25.6, "<img class=ic src=../static/i/think.png> <b>Makna</b>: ada tanda pembayang dan maksud sepadan?"],
+  [25.6, 28.6, "<img class=ic src=../static/i/clipboard.png> <b>Peraturan</b>: 4 baris, 8–12 suku kata, rima, unsur alam"],
   [29.9, 35.4, "Pujian dahulu, kemudian satu <b>petua</b> untuk pantun anda."],
   [37.6, 40.6, "Komputer belum faham <b>kiasan</b> — guru membuat keputusan akhir."],
-  [40.6, 44.2, "Tidak setuju? Tekan butang ini — <b>guru anda akan semak</b>."],
+  [40.6, 44.2, "Tidak setuju? Pilih kelas dan <b>hantar kepada guru anda</b>."],
   [45.6, 48.4, "<b>Belajar Pantun</b>: kenali bentuk pantun dengan contoh."],
   [48.4, 51.8, "<b>Sejarah Saya</b>: lihat semula pantun yang anda semak."],
+  [52.6, 56.0, "<b>Kelas saya</b>: kelas anda. Sertai kelas lain dengan kod."],
+  [56.0, 59.8, "<b>Pertanyaan saya</b>: baca jawapan guru di sini."],
+  [60.4, 64.3, "Belum ada akaun? <b>Daftar</b> dengan kod kelas daripada guru."],
+  [64.8, 68.3, "Akaun siap! Log masuk dan mula menyemak. <img class=ic src=../static/i/cracker.png>"],
 ]);
 
 start(D);

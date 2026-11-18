@@ -27,3 +27,5 @@ data/external/
 # Irasutoya illustrations: free to use, but not to redistribute (public repo) -> kept on this computer only
 assets/irasutoya/*
 !assets/irasutoya/CREDITS.md
+!assets/irasutoya/catalog.json
+static/i/*.png

@@ -25,8 +25,9 @@ SCALE = 1.5          # 1280x720 page -> 1920x1080 video
 
 
 def render(page, name):
-    page.goto((HERE / f"{name}.html").as_uri() + "?render")
+    page.goto((HERE / f"{name}.html").as_uri() + "?render", timeout=180_000)   # web fonts can be slow
     page.wait_for_function("window.READY === true", timeout=60_000)
+    page.wait_for_function("[...document.images].every((i) => i.complete)", timeout=60_000)
     page.wait_for_timeout(500)
     duration = page.evaluate("window.DURATION")
     frames = int(duration * FPS)

@@ -226,6 +226,7 @@ def state():
             s.update(secret=secrets.token_hex(20), enabled=False, until=0, round="", members=True)
             changed = True
         s.setdefault("members", True)
+        s.setdefault("tester_open", False)
         for k, v in (("open", False), ("open_round", ""), ("open_until", 0)):
             s.setdefault(k, v)
         if s.get("enabled") and time.time() >= s.get("until", 0):
@@ -253,7 +254,7 @@ def set_sharing(on, hours=1.0):
     _log("tetamu: perkongsian hidup" if on else "tetamu: perkongsian mati", note=f"{hours:g} jam" if on else "")
 
 
-GUEST_MODES = {"tutup": "🔒 Tutup", "kod": "🎟️ Kod sahaja", "terbuka": "🌐 Terbuka"}
+GUEST_MODES = {"tutup": "![](/app/static/i/lock.png) Tutup", "kod": "![](/app/static/i/ticket.png) Kod sahaja", "terbuka": "![](/app/static/i/globe.png) Terbuka"}
 
 
 def guest_mode(s=None):
@@ -283,6 +284,15 @@ def set_members(on):
         s["members"] = bool(on)
         _write(STATE_FILE, s)
     _log("ahli: log masuk dibuka" if on else "ahli: log masuk ditutup")
+
+
+def set_tester_open(on):
+    """Show or hide the Borang Penguji page for visitors (the owner always sees it)."""
+    with _lock:
+        s = state()
+        s["tester_open"] = bool(on)
+        _write(STATE_FILE, s)
+    _log("penguji: borang dibuka" if on else "penguji: borang ditutup")
 
 
 def kick_all():
@@ -761,11 +771,11 @@ def user_bar():
     u = current_user()
     with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_userbar"):
         if u["kind"] == "public":
-            st.caption("👤 **Pelawat** · tanpa log masuk")
+            st.caption("![](/app/static/i/gutspose_man.png) **Pelawat** · tanpa log masuk")
             st.button("Log masuk / Daftar", icon=":material/login:", type="tertiary", on_click=_want_login,
                       key="cz_login")
             return
-        st.caption(f"👤 **{u['name']}** · {ROLES.get(u['role'], 'Tetamu')}")
+        st.caption(f"![](/app/static/i/gutspose_man.png) **{u['name']}** · {ROLES.get(u['role'], 'Tetamu')}")
         if u["kind"] == "member":
             with st.popover("Tukar kata laluan", icon=":material/password:", type="tertiary"):
                 with st.form("cz_pw", border=False, clear_on_submit=True):
@@ -1042,7 +1052,7 @@ _GATE_CSS = """<style>
   box-shadow: 0 8px 24px rgba(222, 178, 81, .45); }
 .cz-gate h1 { font-size: 1.9rem; font-weight: 900; color: #0C525C; margin: 0; padding: 0; }
 .cz-gate p { color: #45525a; font-size: 1.02rem; line-height: 1.55; margin: 8px 0 0; }
-.st-key-share_gate { max-width: 460px; margin: 0 auto; }
+.st-key-share_gate { max-width: 560px; margin: 14px auto 0; }
 .st-key-share_gate input[maxlength="6"] { text-align: center; font-size: 1.9rem !important; letter-spacing: .5em;
   font-family: 'JetBrains Mono', monospace !important; }
 .st-key-share_gate input[maxlength="14"] { font-family: 'JetBrains Mono', monospace !important; letter-spacing: .12em; }
@@ -1052,9 +1062,7 @@ _GATE_CSS = """<style>
 
 def _screen(title, malay, english, pic="", anim="wiggle"):
     """Centre screen for visitors. `pic` is an Irasutoya picture (src/illus.py); without it, the gold logo dot."""
-    art = illus.img(pic, 120, "margin:0 auto 10px", anim) if pic else ""
-    st.html(_GATE_CSS + f"""<div class="cz-gate">{art or '<div class="logo"></div>'}<h1>{title}</h1><p>{malay}</p>
-        <p style="font-size:.92rem;color:#6b7478">{english}</p></div>""")
+    st.html(_GATE_CSS + illus.stage_html("login", title, malay, "Cenderawasih", english))
 
 
 def gate():
@@ -1110,8 +1118,8 @@ def gate():
         if s.get("open"):
             st.button("← Teruskan tanpa log masuk", type="tertiary", key="cz_back_open",
                       on_click=lambda: st.session_state.pop("cz_want_login", None))
-        tabs = (["👤 Log masuk", "📝 Daftar"] if s["members"] else []) + (["🎟️ Tetamu (kod)"] if s["enabled"] else [])
-        forms = {"👤 Log masuk": _member_form, "📝 Daftar": _signup_form, "🎟️ Tetamu (kod)": _guest_form}
+        tabs = (["![](/app/static/i/gutspose_man.png) Log masuk", "![](/app/static/i/notebook.png) Daftar"] if s["members"] else []) + (["![](/app/static/i/ticket.png) Tetamu (kod)"] if s["enabled"] else [])
+        forms = {"![](/app/static/i/gutspose_man.png) Log masuk": _member_form, "![](/app/static/i/notebook.png) Daftar": _signup_form, "![](/app/static/i/ticket.png) Tetamu (kod)": _guest_form}
         for tab, label in zip(st.tabs(tabs), tabs):
             with tab:
                 forms[label](s, me)
@@ -1119,10 +1127,9 @@ def gate():
 
 
 def _signup_form(s, me):
-    illus.show("study_woman_normal", 110, "float")
     with st.form("signup_form", border=False, clear_on_submit=False):
         role = st.radio("Saya seorang", ["pelajar", "pensyarah"], horizontal=True,
-                        format_func={"pelajar": "🎒 Pelajar", "pensyarah": "🧑‍🏫 Pensyarah"}.get)
+                        format_func={"pelajar": "![](/app/static/i/backpack.png) Pelajar", "pensyarah": "![](/app/static/i/job_senesi.png) Pensyarah"}.get)
         name = st.text_input("Nama penuh", max_chars=60)
         user = st.text_input("Nama pengguna", max_chars=24, placeholder="huruf kecil, cth. aina.r")
         pw = st.text_input("Kata laluan", type="password", placeholder=f"sekurang-kurangnya {PASSWORD_MIN} aksara")
@@ -1138,11 +1145,11 @@ def _signup_form(s, me):
             return
         first = html.escape(str(name).strip().split(" ")[0]) or "anda"
         if status == "aktif":
-            illus.celebrate("Tahniah! 🎉", f"Selamat datang ke Semak Pantun, <b>{first}</b>! Akaun pelajar anda sudah "
+            illus.celebrate("Tahniah! <img class=cz-i alt src=/app/static/i/cracker.png>", f"Selamat datang ke Semak Pantun, <b>{first}</b>! Akaun pelajar anda sudah "
                                          "sedia. Log masuk dan mula menyemak pantun.")
             st.success("Akaun dicipta! Sila log masuk di tab **Log masuk**.", icon=":material/check_circle:")
         else:
-            illus.celebrate("Tahniah! 🎉", f"Terima kasih, <b>{first}</b>! Akaun pensyarah anda sudah didaftarkan dan "
+            illus.celebrate("Tahniah! <img class=cz-i alt src=/app/static/i/cracker.png>", f"Terima kasih, <b>{first}</b>! Akaun pensyarah anda sudah didaftarkan dan "
                                          "akan aktif sebaik sahaja diluluskan oleh pemilik.", "job_senesi")
             st.info("Akaun pensyarah dicipta dan **menunggu kelulusan pemilik**. Cuba log masuk selepas diluluskan.",
                     icon=":material/hourglass_top:")
@@ -1222,12 +1229,19 @@ def owner_page():
     """'Kongsi' page (owner only): members, guest sharing with the live code, and the event log."""
     st.title("Kongsi Semak Pantun", anchor=False)
     st.caption(f"Alamat awam: {PUBLIC_URL} · jalankan Start Sharing.bat supaya alamat ini hidup")
-    tab_m, tab_g, tab_l = st.tabs(["👤 Ahli", "🌐 Akses tanpa akaun", "📜 Log"])
+    tab_m, tab_g, tab_t, tab_l = st.tabs(["![](/app/static/i/gutspose_man.png) Ahli", "![](/app/static/i/globe.png) Akses tanpa akaun", "![](/app/static/i/test_tube.png) Penguji", "![](/app/static/i/paper.png) Log"])
     with tab_m:
+        illus.stage("ahli", "Ahli", "Akaun, peranan dan kelas.", "Kongsi")
         members_panel()
     with tab_g:
+        illus.stage("akses", "Akses Tanpa Akaun", "Siapa boleh masuk tanpa log masuk.", "Kongsi")
         guests_panel()
+    with tab_t:
+        from src import tester          # imported here: tester.py itself uses this module
+        illus.stage("ujian", "Penguji", "Jemput rakan, baca hasil dan nilai skor.", "Kongsi")
+        tester.owner_panel()
     with tab_l:
+        illus.stage("log", "Log", "Siapa masuk dan apa yang berlaku.", "Kongsi")
         log_panel()
 
 
@@ -1270,7 +1284,7 @@ def members_panel():
     pending = [m for m in list_members() if m["status"] == "menunggu"]
     if pending:
         with st.container(border=True):
-            st.markdown(f"**🧑‍🏫 Pensyarah menunggu kelulusan ({len(pending)})**")
+            st.markdown(f"**![](/app/static/i/job_senesi.png) Pensyarah menunggu kelulusan ({len(pending)})**")
             for m in pending:
                 with st.container(horizontal=True, vertical_alignment="center"):
                     st.markdown(f"**{m['name']}** · `{m['username']}` · :gray[daftar {_when(m['created'])}]")
@@ -1295,7 +1309,7 @@ def members_panel():
 
     # Students sign up themselves with a class code, so the owner only creates experts (no sign-up for them)
     # and, as a shortcut, teachers who are approved straight away.
-    with st.expander("➕ Cipta akaun pakar atau pensyarah", expanded=False):
+    with st.expander("![](/app/static/i/gift.png) Cipta akaun pakar atau pensyarah", expanded=False):
         st.caption("Pakar hanya boleh dicipta di sini (tiada pendaftaran sendiri). Pensyarah yang dicipta di sini "
                    "terus diluluskan. Pelajar pula mendaftar sendiri dengan kod kelas daripada pensyarah.")
         with st.form("add_member", clear_on_submit=True):
@@ -1332,7 +1346,7 @@ def lecturer_warnings():
     if not rows:
         return
     with st.container(border=True):
-        st.markdown(f"**⚠️ Akaun pensyarah hampir / sudah luput ({len(rows)})**")
+        st.markdown(f"**![](/app/static/i/warning.png) Akaun pensyarah hampir / sudah luput ({len(rows)})**")
         for m in rows:
             u, gone = m["username"], m["expires"] <= now
             with st.container(horizontal=True, vertical_alignment="center"):
@@ -1342,7 +1356,7 @@ def lecturer_warnings():
                 st.button("+6 bulan", key=f"w182_{u}", on_click=extend_member, args=(u, 182), type="tertiary")
                 st.button("+1 tahun", key=f"w365_{u}", on_click=extend_member, args=(u, 365), type="tertiary")
         st.caption("Selagi akaun luput, kelasnya tidak menerima pelajar baharu dan pertanyaan pelajarnya hanya "
-                   "dilihat oleh anda (Pensyarah → Semakan). Lanjutkan akaun, atau pindahkan kelas di **🏫 Kelas**.")
+                   "dilihat oleh anda (Pensyarah → Semakan). Lanjutkan akaun, atau pindahkan kelas di **![](/app/static/i/school.png) Kelas**.")
 
 
 def _left(t):
@@ -1370,7 +1384,7 @@ def classes_panel():
     if not classes:
         return
     orphans = [c for c in classes if not c["teacher_ok"]]
-    title = f"🏫 Kelas ({len(classes)})" + (f" · ⚠️ {len(orphans)} tanpa pensyarah aktif" if orphans else "")
+    title = f"![](/app/static/i/school.png) Kelas ({len(classes)})" + (f" · ![](/app/static/i/warning.png) {len(orphans)} tanpa pensyarah aktif" if orphans else "")
     with st.expander(title, expanded=bool(orphans)):
         msg = st.session_state.pop("owner_transfer_msg", None)
         if msg:
@@ -1410,8 +1424,8 @@ def members_list():
     for m in members:
         u = m["username"]
         expired = now >= m["expires"]
-        status = ("🕓 Menunggu kelulusan" if m["status"] == "menunggu" else "⛔ Dibatalkan" if m["status"] != "aktif"
-                  else "⏳ Luput" if expired else "🟢 Dalam talian" if u in online else "✅ Aktif")
+        status = ("![](/app/static/i/clock.png) Menunggu kelulusan" if m["status"] == "menunggu" else "![](/app/static/i/ng_mark.png) Dibatalkan" if m["status"] != "aktif"
+                  else "![](/app/static/i/hourglass.png) Luput" if expired else "![](/app/static/i/ok_mark.png) Dalam talian" if u in online else "![](/app/static/i/ok_mark.png) Aktif")
         last = f"{_ago(m['last_login'])}" if m["last_login"] else "belum pernah"
         with st.container(border=True):
             role_txt = ROLES.get(m.get("role", "pelajar"), "Pelajar")
@@ -1441,7 +1455,7 @@ def members_list():
                 st.button("Padam", key=f"del_{u}", icon=":material/delete:", type="tertiary",
                           on_click=delete_member, args=(u,),
                           help="Akaun dipadam; sejarah log masuk disimpan. Nama pengguna ini tidak boleh didaftar "
-                               "semula. Kelas pensyarah kekal: pindahkan di 🏫 Kelas.")
+                               "semula. Kelas pensyarah kekal: pindahkan di Kelas.")
                 with st.popover("Tukar peranan", icon=":material/badge:", type="tertiary"):
                     new_role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get, key=f"role_{u}",
                                             index=list(ROLES).index(m.get("role") or "pelajar"))
@@ -1479,12 +1493,12 @@ def guests_panel():
         st.markdown("""
 | | Siapa boleh masuk tanpa akaun |
 |---|---|
-| 🔒 **Tutup** | Tiada sesiapa: semua perlu log masuk, kod tetamu tidak berfungsi |
-| 🎟️ **Kod sahaja** | Hanya orang yang anda beri kod 30 saat (halaman Pelajar) |
-| 🌐 **Terbuka** | Sesiapa sahaja, terus ke halaman Pelajar tanpa kod |
+| ![](/app/static/i/lock.png) **Tutup** | Tiada sesiapa: semua perlu log masuk, kod tetamu tidak berfungsi |
+| ![](/app/static/i/ticket.png) **Kod sahaja** | Hanya orang yang anda beri kod 30 saat (halaman Pelajar) |
+| ![](/app/static/i/globe.png) **Terbuka** | Sesiapa sahaja, terus ke halaman Pelajar tanpa kod |
 """)
         if mode == "tutup":
-            st.info("Sekarang: **🔒 Tutup**. Hanya pengguna berakaun boleh masuk.", icon=":material/lock:")
+            st.info("Sekarang: **![](/app/static/i/lock.png) Tutup**. Hanya pengguna berakaun boleh masuk.", icon=":material/lock:")
         else:
             ends = datetime.fromtimestamp(s["until"] if mode == "kod" else s["open_until"])
             st.success(f"Sekarang: **{GUEST_MODES[mode]}** sehingga {ends:%H:%M} ({ends:%d/%m}).",
@@ -1558,8 +1572,8 @@ def guest_devices():
         st.caption("Belum ada tetamu masuk dalam pusingan ini.")
     for d in devices:
         is_online = d["status"] == "aktif" and now - d.get("last", 0) < ONLINE_FOR
-        status = {"aktif": "🟢 Dalam talian" if is_online else "⚪ Tidak aktif",
-                  "dikeluarkan": "⛔ Dikeluarkan", "disekat": "🚫 Disekat"}[d["status"]]
+        status = {"aktif": "![](/app/static/i/ok_mark.png) Dalam talian" if is_online else "![](/app/static/i/moon.png) Tidak aktif",
+                  "dikeluarkan": "![](/app/static/i/ng_mark.png) Dikeluarkan", "disekat": "![](/app/static/i/ng_mark.png) Disekat"}[d["status"]]
         until = f" · diingati hingga {_when(d['until'])}" if d["status"] == "aktif" and d.get("until") else ""
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
             st.markdown(f"**{d['name']}**  \n{d['device']} · `{d['ip']}` · {d['country']}  \n"
@@ -1572,7 +1586,7 @@ def guest_devices():
                           on_click=remove_device, args=(d["id"], True))
     for ip in blocked:
         with st.container(horizontal=True, vertical_alignment="center"):
-            st.markdown(f"🚫 `{ip}` disekat untuk pusingan ini")
+            st.markdown(f"![](/app/static/i/ng_mark.png) `{ip}` disekat untuk pusingan ini")
             st.button("Buka sekatan", key=f"unblock_{ip}", type="tertiary", on_click=unblock_ip, args=(ip,))
 
 

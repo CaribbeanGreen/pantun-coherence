@@ -1,17 +1,17 @@
 /* Shared look for the tutorial videos: the Cenderawasih design system (business case Exhibit 1). */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Lora:wght@400;500&family=Nunito:wght@400;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Lora:wght@400;500&family=Nunito:wght@400;600;700;800;900&display=swap');
 
 :root {
-  --teal: #0C525C; --teal2: #1B6E78; --gold: #DEB251; --cream: #FBF7EE; --paper: #F7EFE3;
-  --ink: #1F2A2E; --muted: #5b6670; --line: #E3DCCB; --brown: #8A4B1C; --green: #2F7D4F;
-  --orange: #A15C00; --red: #B4443C; --mint: #E8F0EF;
+  --teal: #2563EB; --teal2: #0E8FC7; --gold: #FFC83D; --cream: #FFFDF4; --paper: #FFF3C9;
+  --ink: #17324D; --muted: #47627A; --line: #BDE7FF; --brown: #C2571A; --green: #1E9A50;
+  --orange: #D97A00; --red: #E5483C; --mint: #E3F6FF;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 1280px; height: 720px; overflow: hidden; background: #E9E3D6; }
-body { font-family: 'Inter', sans-serif; color: var(--ink); }
+body { font-family: 'Nunito', sans-serif; font-weight: 700; color: var(--ink); }
 
 #stage { position: relative; width: 1280px; height: 720px; overflow: hidden;
-  background: radial-gradient(ellipse at 20% 0%, #F6F0E2 0%, #EDE5D3 60%, #E4DAC5 100%); }
+  background: radial-gradient(circle at 12px 12px, rgba(255,200,61,.5) 0 3px, transparent 4px) 0 0/70px 70px, linear-gradient(180deg, #BFEBFF, #E9F9FF 45%, #FFF3C9); }
 
 .songket { height: 12px; background-repeat: repeat-x;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='12'%3E%3Crect width='22' height='12' fill='%23DEB251'/%3E%3Cpolygon points='11,2 16,6 11,10 6,6' fill='white'/%3E%3C/svg%3E"); }
@@ -19,7 +19,7 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); }
 
 /* Browser window frame */
 .window { position: absolute; left: 70px; top: 58px; width: 1140px; height: 590px; background: var(--cream);
-  border-radius: 16px; box-shadow: 0 30px 70px rgba(40, 30, 10, .22), 0 2px 0 rgba(0,0,0,.03); overflow: hidden; }
+  border-radius: 26px; border: 5px solid #fff; box-shadow: 0 9px 0 #8FD5F5, 0 24px 50px rgba(23,50,77,.2); overflow: hidden; }
 .chrome { height: 40px; background: #EFEAE0; display: flex; align-items: center; gap: 8px; padding: 0 16px; }
 .chrome i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 .chrome .url { margin-left: 18px; flex: 1; height: 26px; border-radius: 13px; background: #fff; font-size: 13px;
@@ -27,7 +27,7 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); }
 
 /* Captions, step badge, cursor, spotlight, progress */
 #caption { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
-  background: rgba(12, 82, 92, .96); color: #fff; padding: 12px 26px; border-radius: 30px; font: 600 21px 'Nunito', sans-serif;
+  background: #17324D; color: #fff; padding: 12px 26px; border-radius: 30px; font: 600 21px 'Nunito', sans-serif;
   box-shadow: 0 10px 30px rgba(12, 82, 92, .35); white-space: nowrap; border: 2px solid var(--gold); }
 #caption b { color: #F3D58E; }
 #step { position: absolute; left: 22px; top: 12px; z-index: 50; display: flex; align-items: center; gap: 10px;
@@ -44,10 +44,10 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); }
 #progress i { display: block; height: 100%; width: 0; background: var(--gold); }
 
 /* Title cards */
-.titlecard { position: absolute; inset: 0; background: var(--teal); color: #fff; display: flex; flex-direction: column;
+.titlecard { position: absolute; inset: 0; background: linear-gradient(180deg, #2F6BFF, #21B6E8); color: #fff; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 18px; z-index: 80; font-family: 'Nunito', sans-serif; }
 .titlecard .songket { position: absolute; left: 0; right: 0; }
-.titlecard h1 { font-size: 58px; font-weight: 900; letter-spacing: -.5px; }
+.titlecard h1 { font: 800 66px/1.1 'Baloo 2', sans-serif; color: #fff; -webkit-text-stroke: 9px #17324D; paint-order: stroke fill; text-shadow: 0 6px 0 #17324D; }
 .titlecard p { font-size: 24px; color: #d6e6e6; }
 .titlecard .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 800; }
 .titlecard .brand .dot { width: 34px; height: 34px; }
@@ -56,8 +56,8 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); }
 
 /* Common UI pieces */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; font-weight: 800; }
-.btn.primary { background: var(--teal); color: #fff; box-shadow: 0 5px 0 #083b42; }
-.btn.primary.pressed { transform: translateY(4px); box-shadow: 0 1px 0 #083b42; }
+.btn.primary { background: #1E9A50; color: #fff; box-shadow: 0 5px 0 #127039; border-radius: 18px; }
+.btn.primary.pressed { transform: translateY(4px); box-shadow: 0 1px 0 #127039; }
 .badge { display: inline-block; border-radius: 8px; padding: 3px 10px; font-weight: 700; font-size: 14px; }
 .typing::after { content: ""; display: inline-block; width: 2px; height: 1.05em; background: var(--teal); margin-left: 2px;
   vertical-align: -2px; }
@@ -65,3 +65,7 @@ body { font-family: 'Inter', sans-serif; color: var(--ink); }
 .pb { color: var(--teal2); } .mk { color: var(--brown); }
 .ring { border-radius: 50%; display: grid; place-items: center; }
 .ring > div { border-radius: 50%; background: var(--cream); display: grid; place-items: center; font-weight: 900; }
+
+/* Irasutoya pictures used as icons */
+.ic { display: inline-block; width: 1.5em; height: 1.5em; object-fit: contain; vertical-align: -.42em; margin-right: .16em;
+  filter: drop-shadow(1px 0 #fff) drop-shadow(-1px 0 #fff) drop-shadow(0 1px #fff) drop-shadow(0 -1px #fff); }

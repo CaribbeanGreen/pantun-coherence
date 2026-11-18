@@ -10,7 +10,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from src.app_core import (CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
+from src.app_core import (result_banner, CHECK, EXAMPLES, GOLD, TEAL, LEAN_MALAY, analyse, banner, card, card_html, cards_row,
                           check_lines, confetti, dial, dials, help_button, load_calibration, pantun_card, rhyme_text,
                           save_flag, tour)
 from src import illus
@@ -54,10 +54,10 @@ def check_now():
 def write_screen():
     """Screen A (Exhibit 3): write a pantun."""
     with st.container(key="s_lines"):
-        st.markdown(":blue-badge[🖼️ **Pembayang** · baris 1–2]")
+        st.markdown(":blue-badge[![](/app/static/i/yashinoki.png) **Pembayang** · baris 1–2]")
         st.text_input("Baris 1", key="s_l1", label_visibility="collapsed", placeholder="Baris 1")
         st.text_input("Baris 2", key="s_l2", label_visibility="collapsed", placeholder="Baris 2")
-        st.markdown(":orange-badge[💬 **Maksud** · baris 3–4]")
+        st.markdown(":orange-badge[![](/app/static/i/mail.png) **Maksud** · baris 3–4]")
         st.text_input("Baris 3", key="s_l3", label_visibility="collapsed", placeholder="Baris 3")
         st.text_input("Baris 4", key="s_l4", label_visibility="collapsed", placeholder="Baris 4")
 
@@ -72,30 +72,30 @@ def write_screen():
         for name in EXAMPLES:
             st.button(name, key=f"s_ex_{name}", type="tertiary", on_click=use_lines, args=(EXAMPLES[name],))
 
-    card("", "📘 <b>Tahukah anda?</b> Pembayang selalunya menggunakan unsur alam seperti buah, laut dan "
+    card("", "<img class=cz-i alt src=/app/static/i/book_open_yoko.png> <b>Tahukah anda?</b> Pembayang selalunya menggunakan unsur alam seperti buah, laut dan "
          "burung. Ia memberi <b>petunjuk</b> kepada maksud.")
 
 
 def result_screen(res):
     """Screen B (Exhibits 2 and 3, labels 5-7): dials, praise, tip, reminder, disagree button."""
     if res["sound"] == 10 and res["rules"] == 4:
-        headline = "Bagus! Rima anda cantik 🎉"
+        headline, pic = "Bagus! Rima anda cantik", "trophy"
     elif res["sound"] >= 7.5:
-        headline = "Hampir sempurna! 👏"
+        headline, pic = "Hampir sempurna!", "thumbs_up"
     elif res["rules"] >= 3:
-        headline = "Usaha yang baik! 👍"
+        headline, pic = "Usaha yang baik!", "gutspose_man"
     else:
-        headline = "Mari cuba lagi bersama! 💪"   # a low score is never shown as failure
-    banner("Hasil semakan", headline)
+        headline, pic = "Mari cuba lagi bersama!", "owl"   # a low score is never shown as failure
+    result_banner("Hasil semakan", headline, pic)
     if st.session_state.pop("s_celebrate", False):
         confetti()
 
     _, _, meaning_caption = LEAN_MALAY[res["lean"]]
     meaning_colour = GOLD if res["lean"] != "not_belong" else CHECK
     dials([
-        dial(f"{res['sound']:g}/10", res["sound"] / 10, TEAL, "Bunyi", "Rima a-b-a-b", "🎵", delay=0.1),
-        dial(f"{100 * res['p_avg']:.0f}%", res["p_avg"], meaning_colour, "Makna", meaning_caption, "💭", delay=0.25),
-        dial(f"{res['rules']}/4", res["rules"] / 4, "#1B6E78", "Peraturan", "Bentuk pantun", "📋", delay=0.4),
+        dial(f"{res['sound']:g}/10", res["sound"] / 10, TEAL, "Bunyi", "Rima a-b-a-b", "<img class=cz-i alt src=/app/static/i/music.png>", delay=0.1),
+        dial(f"{100 * res['p_avg']:.0f}%", res["p_avg"], meaning_colour, "Makna", meaning_caption, "<img class=cz-i alt src=/app/static/i/think.png>", delay=0.25),
+        dial(f"{res['rules']}/4", res["rules"] / 4, "#1B6E78", "Peraturan", "Bentuk pantun", "<img class=cz-i alt src=/app/static/i/clipboard.png>", delay=0.4),
     ])
 
     # What you did well (praise first)
@@ -108,7 +108,7 @@ def result_screen(res):
     if crit.get("Pembayang"):
         good.append("Pembayang guna unsur alam")
     if res["bonus"]:
-        good.append("Bonus ⭐ rima tengah")
+        good.append("Bonus rima tengah")
 
     # One tip
     if res["shared"]:
@@ -131,11 +131,11 @@ def result_screen(res):
         card_html("Apa yang anda buat dengan baik",
                   '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'
                   '<div style="flex:1 1 170px">'
-                  + "<br>".join(f"✅ {html.escape(g)}" for g in good) + f"</div>{buddy}</div>",
+                  + "<br>".join(f"<img class=cz-i alt src=/app/static/i/ok_mark.png> {html.escape(g)}" for g in good) + f"</div>{buddy}</div>",
                   background="#E8F0EF", border="#C9DEDB", delay=0.6),
-        card_html("💡 Petua", tip, delay=0.75),
+        card_html("<img class=cz-i alt src=/app/static/i/bulb.png> Petua", tip, delay=0.75),
     ])
-    card("", "🤝 <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud "
+    card("", "<img class=cz-i alt src=/app/static/i/handshake.png> <b>Ingat:</b> komputer belum pandai faham kiasan. Skor rendah <b>tidak</b> bermaksud "
          "pantun anda tidak baik. Guru anda membuat keputusan akhir.",
          background="#F8ECCF", border="#EBD39A", delay=0.9)
 
@@ -149,7 +149,7 @@ def result_screen(res):
             "daripada masa itu.")
 
     me = current_user()
-    with st.popover("🙋 Saya tidak setuju — minta guru semak", width="stretch"):
+    with st.popover("![](/app/static/i/raise_hand.png) Saya tidak setuju — minta guru semak", width="stretch"):
         with st.form("s_flag", border=False):
             class_code = ""
             if me["kind"] == "member":                 # signed-in student: goes to their class teacher
@@ -208,7 +208,7 @@ def learn_screen():
         for name in EXAMPLES:
             if st.button(f"Guna \"{name}\"", key=f"s_learn_{name}", type="secondary",
                          on_click=use_lines, args=(EXAMPLES[name],)):
-                st.toast("Contoh dimasukkan. Buka tab **Semak Pantun** dan tekan butang semak.", icon="✨")
+                st.toast("Contoh dimasukkan. Buka tab **Semak Pantun** dan tekan butang semak.")
 
 
 def account_panel():
@@ -217,7 +217,7 @@ def account_panel():
     if me["kind"] != "member":
         return
     with st.container(border=True):
-        st.markdown("**🏫 Kelas saya**")
+        st.markdown("**![](/app/static/i/school.png) Kelas saya**")
         classes = student_classes_ok(me["username"])
         if classes:
             st.markdown("  \n".join(f"· **{c['name']}** ({c['code']}) · {c['teacher_name'] or 'pemilik'}"
@@ -236,10 +236,10 @@ def account_panel():
                     st.error(str(e))
         mine = my_inquiries(me["username"])
         if not mine.empty:
-            st.markdown("**🙋 Pertanyaan saya**")
+            st.markdown("**![](/app/static/i/raise_hand.png) Pertanyaan saya**")
             mine["time"] = pd.to_datetime(mine["time"], unit="s").dt.tz_localize("UTC") \
                 .dt.tz_convert("Asia/Kuala_Lumpur").dt.strftime("%d/%m %H:%M")
-            mine["status"] = mine["status"].map({"baru": "⏳ Menunggu", "selesai": "✅ Dijawab"}).fillna(mine["status"])
+            mine["status"] = mine["status"].map({"baru": "Menunggu", "selesai": "Dijawab"}).fillna(mine["status"])
             st.dataframe(mine.rename(columns={"time": "Masa", "line1": "Baris 1", "line3": "Baris 3",
                                               "comment": "Komen saya", "status": "Status", "reply": "Jawapan guru"}),
                          hide_index=True)
@@ -265,7 +265,7 @@ def history_screen():
         pantun_card(hist[sel[0]]["lines"])
         if st.button("Buka semula pantun ini", icon=":material/edit:", on_click=use_lines,
                      args=(hist[sel[0]]["lines"],)):
-            st.toast("Pantun dimasukkan semula. Buka tab **Semak Pantun**.", icon="✏️")
+            st.toast("Pantun dimasukkan semula. Buka tab **Semak Pantun**.")
     st.caption(f"{len(hist)} pantun disemak dalam sesi ini. Sejarah hilang apabila tab pelayar ditutup.")
 
 
@@ -274,10 +274,9 @@ _, middle, _ = st.columns([1, 12, 1])
 with middle.container(key="pelajar"):
     with st.container(horizontal=True, horizontal_alignment="right"):
         help_button("pelajar")
-    banner("Cenderawasih · Semak Pantun", "Semak Pantun Anda ✨",
-           "Adakah pembayang dan maksud anda sepadan? Tulis 4 baris, kemudian tekan butang.")
-    tab_check, tab_learn, tab_hist = st.tabs(["🔍 Semak Pantun", "📘 Belajar Pantun", "🕘 Sejarah Saya"])
+    tab_check, tab_learn, tab_hist = st.tabs(["![](/app/static/i/magnifier.png) Semak Pantun", "![](/app/static/i/book_open_yoko.png) Belajar Pantun", "![](/app/static/i/clock.png) Sejarah Saya"])
     with tab_check:
+        illus.stage("semak", "Semak Pantun Anda!", "Adakah pembayang dan maksud anda sepadan? Tulis 4 baris, kemudian tekan butang.", "Cenderawasih")
         left, right = st.columns([1, 1], gap="large")
         with left:
             write_screen()
@@ -288,10 +287,12 @@ with middle.container(key="pelajar"):
             else:
                 card("Hasil semakan", "Hasil anda akan muncul di sini: <b>Bunyi</b> (rima), <b>Makna</b> "
                      "(tanda pembayang dan maksud sepadan) dan <b>Peraturan</b> (bentuk pantun).",
-                     background="#F7F3EA")
+                     background="#FFFFFF")
     with tab_learn:
+        illus.stage("belajar", "Belajar Pantun", "Kenali pembayang, maksud, rima dan kiasan dengan cara yang seronok.", "Jom belajar")
         learn_screen()
     with tab_hist:
+        illus.stage("sejarah", "Sejarah Saya", "Kelas anda, jawapan guru dan pantun yang sudah disemak.", "Perjalanan anda")
         history_screen()
 
     # A lecturer or expert who came in with the guest code (or open mode) can switch to their own account here.
@@ -303,13 +304,13 @@ with middle.container(key="pelajar"):
                       key="s_staff_login")
 
 tour("pelajar", [
-    (".st-key-s_lines", "Tulis pantun anda ✍️",
+    (".st-key-s_lines", "Tulis pantun anda <img class=cz-i alt src=/app/static/i/pencil.png>",
      "Baris 1–2 ialah <b>pembayang</b>, baris 3–4 ialah <b>maksud</b>. Tiada pantun? Tekan satu contoh di bawah."),
-    (".st-key-s_go", "Tekan Semak 🔍", "Komputer menyemak <b>bunyi, makna dan peraturan</b> dalam beberapa saat."),
-    (".st-key-s_right", "Baca hasil anda 🎯",
+    (".st-key-s_go", "Tekan Semak <img class=cz-i alt src=/app/static/i/magnifier.png>", "Komputer menyemak <b>bunyi, makna dan peraturan</b> dalam beberapa saat."),
+    (".st-key-s_right", "Baca hasil anda <img class=cz-i alt src=/app/static/i/target.png>",
      "Tiga dial: <b>Bunyi</b> (rima), <b>Makna</b> (tanda sepadan) dan <b>Peraturan</b> (bentuk). "
      "Pujian dahulu, kemudian petua. Tidak setuju? Minta guru semak."),
-    (".st-key-pelajar [role='tablist']", "Belajar & Sejarah 📘",
+    (".st-key-pelajar [role='tablist']", "Belajar & Sejarah <img class=cz-i alt src=/app/static/i/book_open_yoko.png>",
      "<b>Belajar Pantun</b> untuk teori dengan contoh. <b>Sejarah Saya</b> untuk pantun yang anda semak."),
-    (".st-key-help_pelajar", "Perlukan bantuan? ▶️", "Tekan <b>Cara guna</b> bila-bila masa untuk video tutorial."),
+    (".st-key-help_pelajar", "Perlukan bantuan? <img class=cz-i alt src=/app/static/i/play.png>", "Tekan <b>Cara guna</b> bila-bila masa untuk video tutorial."),
 ])

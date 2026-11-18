@@ -23,6 +23,7 @@ import pandas as pd
 import streamlit as st
 from scipy import stats
 
+from src import illus, kids_theme
 from src.criteria import checklist
 from src.data_loader import PROJECT_ROOT, find_merged_line, join_couplet, normalise_line
 from src.evaluate import lean, predict_p_real
@@ -459,7 +460,8 @@ THEME_CSS = f"""<style>
 
 def fonts():
     """Load Lora (pantun text) and Nunito (student view), plus the theme, motion and polish styles."""
-    st.html(FONTS_CSS + UX_CSS + THEME_CSS)
+    st.html(FONTS_CSS + UX_CSS + THEME_CSS + kids_theme.CSS)
+    st.html(kids_theme.JS, unsafe_allow_javascript=True)
 
 
 def confetti():
@@ -476,6 +478,12 @@ def confetti():
 
 def songket_border():
     st.html(f"<div style=\"{SONGKET}border-radius:2px\"></div>")
+
+
+def result_banner(kicker, title, pic):
+    """Bright pop-up heading with a hopping character (the student's result)."""
+    st.html(f'<div class="ks-banner">{illus.img(pic, 66, "margin:0")}<div><small>{html.escape(kicker)}</small>'
+            f"<div>{html.escape(title)}</div></div></div>")
 
 
 def banner(kicker, title, subtitle="", font="Nunito"):
@@ -529,13 +537,13 @@ def dials(items):
             + "".join(items) + "</div>")
 
 
-def card_html(title, body_html, background="#ffffff", border="#E3DCCB", font="Nunito", title_colour="#1F2A2E",
+def card_html(title, body_html, background="#ffffff", border="#BDE7FF", font="Nunito", title_colour="#1F2A2E",
               delay=0.0):
     """Rounded card (student view) that rises in after `delay` seconds. Inputs must already be safe HTML."""
     head = (f'<div style="font-weight:800;font-size:1.1rem;color:{title_colour};margin-bottom:6px">{title}</div>'
             if title else "")
     return f"""
-<div class="cz-card cz-rise" style="animation-delay:{delay:.2f}s;flex:1 1 240px;background:{background};border:2px solid {border};border-radius:18px;padding:14px 18px;font-family:'{font}',sans-serif">
+<div class="cz-card cz-rise" style="animation-delay:{delay:.2f}s;flex:1 1 240px;background:{background};border:3px solid {border};border-radius:24px;box-shadow:0 5px 0 #CDEEFF;padding:14px 18px;font-family:'{font}',sans-serif">
   {head}<div style="color:#1F2A2E;line-height:1.6">{body_html}</div>
 </div>"""
 
@@ -682,7 +690,7 @@ def tour(view, steps, lang="ms"):
 
 HELP_TEXT = {
     "ms": ("Cara guna", "Cara guna laman ini", "Mulakan lawatan berpandu",
-           "Tonton video (kira-kira 1 minit), atau ikut lawatan berpandu langkah demi langkah.",
+           "Tonton video (1 hingga 1.5 minit), atau ikut lawatan berpandu langkah demi langkah.",
            "Video tutorial belum dibuat. Jalankan tutorial/render.py."),
     "en": ("How to use", "How to use this page", "Start the guided tour",
            "Watch the video (about 1 minute), or follow the step-by-step guided tour.",
