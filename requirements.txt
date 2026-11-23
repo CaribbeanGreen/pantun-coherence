@@ -12,3 +12,4 @@ datasets
 accelerate
 nltk
 google-genai
+cryptography
