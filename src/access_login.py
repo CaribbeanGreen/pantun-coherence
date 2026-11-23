@@ -23,6 +23,7 @@ import json
 import os
 import time
 import urllib.request
+from pathlib import Path
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -32,11 +33,29 @@ CERTS_TTL = 3600          # re-download Cloudflare's public keys at most once an
 _certs_cache = {"team": None, "at": 0.0, "keys": {}}
 
 
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def _env(name):
+    """A setting from the real environment, else from the project's .env file (NAME=value lines).
+    The app does not load .env by itself, so it is read here (only a few small lines)."""
+    if os.environ.get(name):
+        return os.environ[name].strip()
+    try:
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == name:
+                return value.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
 def settings():
-    """(team, aud, owner emails) from the environment. team/aud are '' when the feature is off."""
-    team = os.environ.get("PANTUN_ACCESS_TEAM", "").strip()
-    aud = os.environ.get("PANTUN_ACCESS_AUD", "").strip()
-    emails = {e.strip().lower() for e in os.environ.get("PANTUN_OWNER_EMAILS", "").split(",") if e.strip()}
+    """(team, aud, owner emails) from the environment or .env. team/aud are '' when the feature is off."""
+    team = _env("PANTUN_ACCESS_TEAM")
+    aud = _env("PANTUN_ACCESS_AUD")
+    emails = {e.strip().lower() for e in _env("PANTUN_OWNER_EMAILS").split(",") if e.strip()}
     return team, aud, emails
 
 
