@@ -42,7 +42,7 @@ import pandas as pd
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-from src import illus
+from src import access_login, illus
 from src.data_loader import PROJECT_ROOT
 
 SHARE_DIR = Path(os.environ.get("PANTUN_SHARE_DIR") or PROJECT_ROOT / "results")
@@ -881,11 +881,15 @@ def _clear_cookie():
 
 def is_visitor():
     """True for requests that come through Cloudflare (the public address). Cloudflare always adds these
-    headers, so a visitor cannot hide them. PANTUN_FORCE_GATE=1 shows the visitor screen locally (testing)."""
+    headers, so a visitor cannot hide them. PANTUN_FORCE_GATE=1 shows the visitor screen locally (testing).
+    Exception: the owner logged in through Cloudflare Access on the admin address (signed token checked in
+    src/access_login.py) is treated like this computer, so the owner can manage the app from anywhere."""
     if os.environ.get("PANTUN_FORCE_GATE") == "1":
         return True
     h = st.context.headers
-    return bool(h.get("Cf-Ray") or h.get("Cf-Connecting-Ip"))
+    if not (h.get("Cf-Ray") or h.get("Cf-Connecting-Ip")):
+        return False                                   # this computer
+    return access_login.owner_email(h.get("Cf-Access-Jwt-Assertion")) is None
 
 
 def _session_id():
