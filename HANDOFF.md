@@ -56,6 +56,15 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
   videos) was tried live by the owner and **merged into `main` on 23 Nov 2026** (fast-forward, pushed).
 - Old branches `illustrations` and `business-case-sync` were merged and deleted.
 - Hosting: temporary, via Cloudflare Tunnel at pantun.aimanjamal.com (**Start Sharing.bat**), off by default.
+- **Owner admin from anywhere (23 Nov 2026):** https://studio.aimanjamal.com → Cloudflare Access login
+  (email one-time code, owner emails only) → the app sees a signed token and treats the request like this
+  computer (Kongsi page). Code: `src/access_login.py` + `is_visitor()` in `src/share.py`; tests:
+  `tests/test_access_login.py`. Settings in `.env` (never in git): `PANTUN_ACCESS_TEAM`, `PANTUN_ACCESS_AUD`,
+  `PANTUN_OWNER_EMAILS`. Cloudflare side: Zero Trust → Access controls → Applications → **Pantun Studio**
+  (policy "owner only", login method One-time PIN only).
+- Tunnel config lives outside the repo: `%USERPROFILE%\.cloudflared\pantun.yml` (routes pantun + studio).
+  Use `http://127.0.0.1:8501`, **not** `localhost`: Windows resolves localhost to IPv6 `[::1]` first, Streamlit
+  listens on IPv4 only, and visitors get 502 Bad gateway.
 
 ## 6. Follow-up list (open items)
 Tick them off here when done.
