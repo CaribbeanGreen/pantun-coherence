@@ -52,7 +52,8 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 - Latest work (all merged): Irasutoya pictures and sign-up celebration; same-name check at sign-up;
   lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
   lecturer accounts, retired usernames); fix for the Semakan crash after answering an inquiry.
-- Branch **`tester-dashboard-videos`**: Borang Penguji, lecturer Papan pemuka, kids-show look and re-made tutorial videos. **To do: owner tries it locally, then merge into `main`.**
+- Branch **`tester-dashboard-videos`** (Borang Penguji, lecturer Papan pemuka, kids-show look, re-made tutorial
+  videos) was tried live by the owner and **merged into `main` on 23 Nov 2026** (fast-forward, pushed).
 - Old branches `illustrations` and `business-case-sync` were merged and deleted.
 - Hosting: temporary, via Cloudflare Tunnel at pantun.aimanjamal.com (**Start Sharing.bat**), off by default.
 
@@ -100,11 +101,11 @@ It uses Microsoft Edge and writes `assets/tutorial/*.mp4` (about 10 to 20 minute
 `assets/irasutoya/` must be on the computer.
 
 ## 9. Latest work (19 Nov 2026)
-Committed on branch `tester-dashboard-videos`, not pushed and not merged: bright kids-show look (`src/kids_theme.py`),
+Merged into `main` on 23 Nov 2026 (from branch `tester-dashboard-videos`): bright kids-show look (`src/kids_theme.py`),
 Irasutoya pictures instead of emoji and icons, a stage with 15 characters on each section (`SCENES` in `src/illus.py`),
 and re-rendered tutorial videos. A browser check counted 16+ different pictures in all 17 app sections.
 
 **Next:**
 1. On a fresh clone, run `python tools/fetch_irasutoya.py` (pictures are not on GitHub).
-2. Owner tries the site, then push the branch and merge it into `main`.
+2. ~~Owner tries the site, then push the branch and merge it into `main`.~~ Done 23 Nov 2026.
 3. Commercial use would break Irasutoya's limit of 20 pictures per work: re-check the terms first.
