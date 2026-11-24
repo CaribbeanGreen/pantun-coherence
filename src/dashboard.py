@@ -1,4 +1,5 @@
-"""Pieces of the lecturer's home page (Pensyarah -> Papan pemuka). Everything shown comes from real data.
+"""Pieces of the teacher's home page (Cikgu -> Papan pemuka / Dashboard). Everything shown comes from real data.
+Text is in the reader's language (src/lang.py).
 
 The functions here only turn data into HTML, so app_pages/pensyarah.py stays about what the page does.
 All names and pantun text come from users, so they are always escaped.
@@ -10,11 +11,19 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 from src import illus
+from src.lang import current as lang_now, tr
 
 MYT = timezone(timedelta(hours=8))
 HARI = ["Isnin", "Selasa", "Rabu", "Khamis", "Jumaat", "Sabtu", "Ahad"]
 BULAN = ["Januari", "Februari", "Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November",
          "Disember"]
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December"]
+
+
+def _month(m):
+    return (MONTHS if lang_now() == "en" else BULAN)[m - 1]
 AVATAR = ["#0C525C", "#8A4B1C", "#2F7D4F", "#A15C00", "#1B6E78", "#B4443C"]
 
 CSS = """<style>
@@ -79,18 +88,24 @@ def now_myt():
 
 def greeting(t=None):
     h = (t or now_myt()).hour
+    if lang_now() == "en":
+        return "Good morning" if 5 <= h < 12 else "Good afternoon" if 12 <= h < 19 else "Good evening"
     return "Selamat pagi" if 5 <= h < 12 else "Selamat tengah hari" if h < 14 and h >= 12 else \
         "Selamat petang" if 14 <= h < 19 else "Selamat malam"
 
 
 def malay_date(t=None):
     t = t or now_myt()
-    return f"{HARI[t.weekday()]}, {t.day} {BULAN[t.month - 1]} {t.year}"
+    day = (DAYS if lang_now() == "en" else HARI)[t.weekday()]
+    return f"{day}, {t.day} {_month(t.month)} {t.year}"
 
 
 def ago(ts, now=None):
     """'5 min lalu' for a time in seconds since 1970."""
     d = max(0, int((now or now_myt().timestamp()) - ts))
+    if lang_now() == "en":
+        return "just now" if d < 60 else f"{d // 60} min ago" if d < 3600 else f"{d // 3600} h ago" \
+            if d < 86400 else f"{d // 86400} days ago"
     return "baru sahaja" if d < 60 else f"{d // 60} min lalu" if d < 3600 else f"{d // 3600} jam lalu" \
         if d < 86400 else f"{d // 86400} hari lalu"
 
@@ -109,15 +124,17 @@ def hero(name, n_open, n_classes, expires=None, t=None):
     """Arguments for illus.stage: the greeting at the top of the page."""
     t = t or now_myt()
     if n_open:
-        line = f"<b>{n_open} pertanyaan</b> pelajar sedang menunggu jawapan anda."
+        line = tr(f"<b>{n_open} pertanyaan</b> murid sedang menunggu jawapan anda.",
+                  f"<b>{n_open} pupil question{'s' if n_open != 1 else ''}</b> waiting for your answer.")
     elif n_classes:
-        line = "Tiada pertanyaan tertunggak. Kelas anda dalam keadaan baik!"
+        line = tr("Tiada pertanyaan tertunggak. Kelas anda dalam keadaan baik!",
+                  "No questions waiting. Your classes are in good shape!")
     else:
-        line = "Mari mulakan dengan mencipta kelas pertama anda."
+        line = tr("Mari mulakan dengan mencipta kelas pertama anda.", "Let's start by creating your first class.")
     pill = ""
     if expires:
         when = datetime.fromtimestamp(expires, MYT)
-        pill = f"Akaun sah hingga {when.day} {BULAN[when.month - 1]} {when.year}"
+        pill = tr("Akaun sah hingga", "Account valid until") + f" {when.day} {_month(when.month)} {when.year}"
     return "dash", f"{greeting(t)}, {esc(name)}!", line, malay_date(t), pill
 
 
@@ -132,8 +149,9 @@ def inquiry_items(df, now=None):
     out = []
     for r in df.itertuples():
         where = r.class_name if isinstance(r.class_name, str) and r.class_name else \
-            {"tetamu": "Tetamu", "pemilik": "Tiada kelas", "lama": "Rekod lama"}.get(r.kind, "")
-        out.append(f'<div class="dz-item">{avatar(r.who or "?")}<div><b>{esc(r.who or "Tanpa nama")}</b> '
+            {"tetamu": tr("Tetamu", "Guest"), "pemilik": tr("Tiada kelas", "No class"),
+             "lama": tr("Rekod lama", "Old record")}.get(r.kind, "")
+        out.append(f'<div class="dz-item">{avatar(r.who or "?")}<div><b>{esc(r.who or tr("Tanpa nama", "No name"))}</b> '
                    f'<span class="dz-sub">· {esc(where)} · {ago(r.time, now)}</span>'
                    f'<span class="dz-line">{esc(r.line1)}</span></div></div>')
     return "".join(out)
@@ -144,17 +162,19 @@ def class_cards(classes, students_of, open_by_class):
     for i, c in enumerate(classes):
         people = students_of.get(c["code"], [])
         faces = "".join(avatar(p["name"]) for p in people[:5])
-        extra = f"+{len(people) - 5} lagi" if len(people) > 5 else ""
-        count = f"{len(people)} pelajar" if people else "Belum ada pelajar. Kongsi kod ini."
+        extra = f"+{len(people) - 5} " + tr("lagi", "more") if len(people) > 5 else ""
+        count = (tr(f"{len(people)} murid", f"{len(people)} pupils") if people else
+                 tr("Belum ada murid. Kongsi kod ini.", "No pupils yet. Share this code."))
         n = open_by_class.get(c["code"], 0)
         if not c["teacher_ok"]:
-            tag, off = '<span class="dz-tag off">Pensyarah tidak aktif</span>', True
+            tag, off = f'<span class="dz-tag off">{tr("Cikgu tidak aktif", "Teacher not active")}</span>', True
         elif not c["active"]:
-            tag, off = '<span class="dz-tag off">Kod ditutup</span>', True
+            tag, off = f'<span class="dz-tag off">{tr("Kod ditutup", "Code closed")}</span>', True
         elif n:
-            tag, off = f'<span class="dz-tag wait"><img class=cz-i alt src=/app/static/i/hourglass.png> {n} menunggu jawapan</span>', False
+            tag, off = (f'<span class="dz-tag wait"><img class=cz-i alt src=/app/static/i/hourglass.png> {n} '
+                        f'{tr("menunggu jawapan", "waiting")}</span>'), False
         else:
-            tag, off = '<span class="dz-tag ok">✔ Semua terjawab</span>', False
+            tag, off = f'<span class="dz-tag ok">✔ {tr("Semua terjawab", "All answered")}</span>', False
         cards.append(f'<div class="dz-class{" off" if off else ""}" style="--d:{min(i, 6) * .06:.2f}s"><h4>{esc(c["name"])}</h4>'
                      f'<span class="dz-code">{esc(c["code"])}</span><div class="dz-faces">{faces}'
                      f'<span class="dz-sub">{esc(extra or count)}</span></div>{tag}</div>')
@@ -175,8 +195,9 @@ def bars(counts):
                     f'--c:{"#DEB251" if k == len(counts) - 1 else "#0C525C" if n else "#E3DCCB"};--d:{k * .025:.2f}s"></i>'
                     for k, (d, n) in enumerate(counts))
     first, last = counts[0][0], counts[-1][0]
-    return (f'<div class="dz-bars" role="img" aria-label="Pertanyaan setiap hari, 14 hari terakhir">{cells}</div>'
-            f'<div class="dz-axis"><span>{first.day}/{first.month}</span><span>hari ini</span></div>')
+    label = tr("Pertanyaan setiap hari, 14 hari terakhir", "Questions per day, last 14 days")
+    return (f'<div class="dz-bars" role="img" aria-label="{label}">{cells}</div>'
+            f'<div class="dz-axis"><span>{first.day}/{first.month}</span><span>{tr("hari ini", "today")}</span></div>')
 
 
 def poem(lines):
@@ -195,7 +216,7 @@ def checklist(steps):
     n = sum(d for _, d in steps)
     rows = "".join(f'<div class="dz-step{" done" if d else ""}"><i>{"✓" if d else k + 1}</i><span>{esc(s)}</span></div>'
                    for k, (s, d) in enumerate(steps))
-    return (f'<div class="dz-sub">{n} daripada {len(steps)} selesai</div><div class="dz-meter">'
+    return (f'<div class="dz-sub">{tr(f"{n} daripada {len(steps)} selesai", f"{n} of {len(steps)} done")}</div><div class="dz-meter">'
             f'<i style="width:{100 * n / len(steps):.0f}%"></i></div>{rows}')
 
 
