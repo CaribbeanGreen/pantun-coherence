@@ -29,10 +29,16 @@ to the live NAS within ~1 min.**
   sign-up in EN (errors + celebration in EN), owner approval list in BM, default language EN → new visitor sees EN.
   Launch configs: `.claude/launch.json` (`pantun-test-owner`, `pantun-test-visitor`).
 
+- Guided tour fixed (24 Nov): started from another tab (e.g. Belajar Pantun) it now opens the tab each step needs;
+  on phones the tip is pinned to the bottom/top edge and steps scroll clear of the top menu. Tested at 361 px and
+  1280 px wide (Murid page and Penyelidik page started from Dapatan).
+- Demo script written: `docs/demo_walkthrough.md` (4 presenters: Murid, Cikgu, Cikgu + Penguji, Penyelidik & Pakar;
+  B1–B2, Malay-English mix, no owner/admin parts).
+
 ## Next steps
 1. Owner tries the branch locally (Start Demo.bat), then decide: merge into `main` (deploys to the NAS) and check
    pantun.aimanjamal.com.
-2. Write the bilingual demo script (see decisions above).
+2. Owner reads `docs/demo_walkthrough.md` and adjusts wording for each presenter.
 3. Known gaps: the tutorial videos for Murid and Cikgu are Malay only (the English help text says so; re-render
    with English pages later if wanted, see HANDOFF.md section 8). Table contents of research result CSVs stay
    English. `HANDOFF.md` still says "Kongsi" for the live `main`; update it when this branch is merged.
