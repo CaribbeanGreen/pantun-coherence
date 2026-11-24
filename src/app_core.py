@@ -23,7 +23,7 @@ import pandas as pd
 import streamlit as st
 from scipy import stats
 
-from src import illus, kids_theme
+from src import illus, kids_theme, lang
 from src.criteria import checklist
 from src.data_loader import PROJECT_ROOT, find_merged_line, join_couplet, normalise_line
 from src.evaluate import lean, predict_p_real
@@ -57,6 +57,12 @@ EXAMPLES = {
     "Bercampur (ujian)": ["Francis Light membuka negeri,", "Pulau dibangunkan jadi pelabuhan;",
                           "Kalau tuan pandai mengungkai,", "Cubalah ungkai di tangan orang."],
 }
+EXAMPLE_NAMES_EN = {"Bercampur (ujian)": "Mixed-up (test)"}
+
+
+def example_name(name):
+    """Button label of an example pantun (only the made-up test example has an English name)."""
+    return EXAMPLE_NAMES_EN.get(name, name) if lang.current() == "en" else name
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +120,7 @@ def ready_models():
     return [s for s in ALL_MODELS if s in corpus.columns and s in cal and s in b]
 
 
-@st.cache_resource(show_spinner="Menyediakan data perbandingan (kali pertama sahaja)...")
+@st.cache_resource(show_spinner="Menyediakan data perbandingan / Preparing comparison data...")
 def reference():
     """Corpus numbers used to put each result in context.
 
@@ -156,8 +162,11 @@ def split_text(text):
     return [line for line in text.splitlines() if line.strip()]
 
 
-def check_lines(raw_lines, malay=True):
-    """Return (clean lines, problems). A pantun empat kerat has exactly 4 non-empty lines."""
+def check_lines(raw_lines, malay=None):
+    """Return (clean lines, problems). A pantun empat kerat has exactly 4 non-empty lines.
+    The problems are in the visitor's language unless `malay` says otherwise."""
+    if malay is None:
+        malay = lang.current() == "ms"
     raw = [l for l in raw_lines if l and l.strip()]
     problems = []
     if len(raw) != 4:
@@ -231,6 +240,15 @@ LEAN_MALAY = {"belong": ("▲", "Condong sepadan", "Ada tanda sepadan"),
               "cannot_tell": ("●", "Tidak pasti", "Tidak pasti"),
               "not_belong": ("▼", "Condong tidak sepadan", "Ada tanda tidak sepadan")}
 LEAN_ENGLISH = {"belong": "leans real", "cannot_tell": "can't tell", "not_belong": "leans mismatch"}
+# The same three words for pupils and teachers reading in English (LEAN_ENGLISH is the researchers' wording).
+LEAN_PLAIN_EN = {"belong": ("▲", "Leans matching", "Signs of a match"),
+                 "cannot_tell": ("●", "Not sure", "Not sure"),
+                 "not_belong": ("▼", "Leans not matching", "Signs of a mismatch")}
+
+
+def lean_words(lean):
+    """(symbol, short label, caption) for the meaning result, in the visitor's language."""
+    return (LEAN_PLAIN_EN if lang.current() == "en" else LEAN_MALAY)[lean]
 
 
 def rhyme_text(res):
@@ -675,10 +693,10 @@ TOUR_LABELS = {
 }
 
 
-def tour(view, steps, lang="ms"):
+def tour(view, steps, language=None):
     """Guided spotlight tour. steps = [(css selector, title, text), ...]. Text must be safe HTML."""
     nonce = st.session_state.get(f"tour_{view}", 0)
-    cfg = {"view": view, "nonce": nonce, "labels": TOUR_LABELS[lang],
+    cfg = {"view": view, "nonce": nonce, "labels": TOUR_LABELS[language or lang.current()],
            "steps": [{"sel": s, "title": t, "text": x} for s, t, x in steps]}
     code = _TOUR_JS.replace("__CFG__", json.dumps(cfg, ensure_ascii=False))
     # The HTML sanitiser drops a <script> whose text contains "<tag"-like text, so write "<" as "\x3c" inside it.
@@ -693,14 +711,15 @@ HELP_TEXT = {
            "Tonton video (1 hingga 1.5 minit), atau ikut lawatan berpandu langkah demi langkah.",
            "Video tutorial belum dibuat. Jalankan tutorial/render.py."),
     "en": ("How to use", "How to use this page", "Start the guided tour",
-           "Watch the video (about 1 minute), or follow the step-by-step guided tour.",
+           "Watch the video (about 1 minute; the pupil and teacher videos are in Malay), or follow the "
+           "step-by-step guided tour.",
            "The tutorial video has not been made yet. Run tutorial/render.py."),
 }
 
 
-def help_button(view, lang="ms"):
+def help_button(view, language=None):
     """'Cara guna' button: opens the tutorial video, with a button to start the guided tour."""
-    label, title, start_label, intro, missing = HELP_TEXT[lang]
+    label, title, start_label, intro, missing = HELP_TEXT[language or lang.current()]
 
     @st.dialog(title, width="large")
     def _show():
