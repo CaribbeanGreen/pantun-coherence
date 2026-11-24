@@ -405,12 +405,15 @@ def member_logins(username, limit=200):
 
 # Account roles. The names people read come from src/lang.py (Murid / Pupil, Cikgu / Teacher, ...); these Malay
 # names are only for the event log, which stays in one language.
-ROLES = {k: role_name(k, "ms") for k in ("pelajar", "pensyarah", "penyelidik")}
+ROLES = {k: role_name(k, "ms") for k in ("pelajar", "pensyarah", "penyelidik", "penguji")}
 # Which views each kind of user may open (page url names). The owner (this computer) sees everything.
-# Teachers may also switch to the expert view ("mod pakar").
+# Teachers get their own page and the pupil page as a preview (used as themselves: it never opens a pupil's
+# account). They do not see the expert page: its queue holds every teacher's cases. Testers ("penguji", made on
+# Tetapan -> Penguji) open all three pages so they can try every task; on the expert page they see only the
+# cases they sent themselves.
 ROLE_VIEWS = {"owner": ["pelajar", "pensyarah", "penyelidik"], "pelajar": ["pelajar"],
-              "pensyarah": ["pensyarah", "penyelidik", "pelajar"], "penyelidik": ["penyelidik", "pelajar"],
-              "guest": ["pelajar"]}
+              "pensyarah": ["pensyarah", "pelajar"], "penyelidik": ["penyelidik", "pelajar"],
+              "penguji": ["pensyarah", "penyelidik", "pelajar"], "guest": ["pelajar"]}
 PASSWORD_MIN = 8
 SIGNUPS_PER_IP, SIGNUP_WINDOW = 5, 3600      # at most 5 new accounts per IP address per hour
 GUEST_INQUIRY_TTL = 24 * 3600                 # guest / open-mode inquiries are deleted after 24 h at most
@@ -586,7 +589,8 @@ def teacher_active(teacher):
     if not teacher:
         return True
     m = get_member(teacher)
-    return bool(m) and m["status"] == "aktif" and m.get("role") == "pensyarah" and time.time() < m["expires"]
+    return (bool(m) and m["status"] == "aktif" and m.get("role") in ("pensyarah", "penguji")   # testers try classes too
+            and time.time() < m["expires"])
 
 
 def teacher_gone():
@@ -794,7 +798,8 @@ def _want_login():
 
 # Each kind of account has its own small character in the top bar (pictures in static/i, see src/illus.py).
 AVATARS = {"pelajar": ("student", "#9B5DE5"), "pensyarah": ("job_senesi", "#2AA7E0"),
-           "penyelidik": ("owl", "#1E9A50"), "owner": ("hornbill", "#F08A00"), "guest": ("kotori", "#5B6670")}
+           "penyelidik": ("owl", "#1E9A50"), "penguji": ("study_woman_normal", "#E0457B"),
+           "owner": ("hornbill", "#F08A00"), "guest": ("kotori", "#5B6670")}
 _CHIP_CSS = """<style>
 .cz-chip { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px;
   background: #fff; border: 2px solid var(--c); font-family: 'Nunito', sans-serif; line-height: 1.15; }
@@ -1455,10 +1460,10 @@ def members_panel():
             role = st.selectbox(tr("Peranan", "Role"), ["penyelidik", "pensyarah"], format_func=role_name,
                                 help=tr(f"{role_name('penyelidik')}: halaman {role_name('penyelidik')} + "
                                         f"{role_name('pelajar')}. {role_name('pensyarah')}: {role_name('pensyarah')} "
-                                        f"+ mod pakar + {role_name('pelajar')}.",
+                                        f"+ {role_name('pelajar')}.",
                                         f"{role_name('penyelidik')}: the {role_name('penyelidik')} and "
                                         f"{role_name('pelajar')} pages. {role_name('pensyarah')}: "
-                                        f"{role_name('pensyarah')} + expert mode + {role_name('pelajar')}."))
+                                        f"{role_name('pensyarah')} + {role_name('pelajar')}."))
             c3, c4 = st.columns(2)
             dur = c3.selectbox(tr("Sah selama", "Valid for"), list(DURATIONS), index=2, format_func=duration_name,
                                help=tr("Untuk cikgu, pilih tempoh satu penggal atau lebih (cth. 6 bulan) supaya "

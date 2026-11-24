@@ -57,6 +57,12 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
   BM / EN for the whole app (owner sets the default on Tetapan → Bahasa), Murid / Cikgu names, Kongsi renamed
   Tetapan (`/tetapan`), guided tour works from any tab and on phones, demo script. Details: `HANDOFF-bilingual.md`.
   Saved data never depends on the language (tester answers Malay, expert ratings English, decision keys fixed).
+- **Roles (24 Nov 2026, later):** a Cikgu opens only Cikgu + Murid (preview as themselves); the expert page is for
+  Penyelidik & Pakar. Tester accounts made on Tetapan → Penguji now have their own role `penguji` (all three pages;
+  on the expert page only their own cases). Old tester accounts (teacher role, note "penguji") are moved to it
+  automatically when the app starts (`src/tester.py` `_init`). Rules: `ROLE_VIEWS` in `src/share.py`.
+- **Top bar:** a small round avatar chip per role (Murid = schoolgirl, Cikgu = teacher, Pakar = owl, Penguji =
+  girl studying, Pemilik = hornbill, guest = bird), next to the BM / EN switch (`AVATARS` in `src/share.py`).
 - Latest work (all merged): Irasutoya pictures and sign-up celebration; same-name check at sign-up;
   lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
   lecturer accounts, retired usernames); fix for the Semakan crash after answering an inquiry.

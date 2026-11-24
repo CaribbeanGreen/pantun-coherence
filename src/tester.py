@@ -130,6 +130,8 @@ _recent_lock = threading.Lock()
 def _init():
     with share._lock, closing(share._db()) as con, con:
         con.executescript(SCHEMA)
+        # Tester accounts used to be made as teachers (note "penguji"); they have their own role now.
+        con.execute("UPDATE members SET role='penguji' WHERE role='pensyarah' AND note='penguji'")
 
 
 _init()
@@ -279,11 +281,11 @@ def owner_panel():
                       "The form is hidden from visitors. Switch it on while your friends are testing."))
 
     with st.expander("![](/app/static/i/mail.png) " + tr("Jemput penguji", "Invite testers"), expanded=not len(reports())):
-        teacher = role("pensyarah")
-        st.caption(tr(f"Akaun **{teacher}** boleh membuka ketiga-tiga paparan, jadi semua ujian boleh dicuba. Ia juga "
-                      "boleh melihat pertanyaan tetamu semasa, tetapi bukan kelas cikgu lain.",
-                      f"A **{teacher}** account can open all three views, so every test can be tried. It can also "
-                      "see current guest questions, but not other teachers' classes."))
+        tester_name = role("penguji")
+        st.caption(tr(f"Akaun **{tester_name}** boleh membuka ketiga-tiga paparan, jadi semua ujian boleh dicuba. Ia "
+                      "tidak nampak pertanyaan murid, tetamu atau kelas cikgu lain.",
+                      f"A **{tester_name}** account can open all three views, so every test can be tried. It does "
+                      "not see pupils' or guests' questions, or other teachers' classes."))
         with st.form("tester_invite", clear_on_submit=True):
             c1, c2, c3 = st.columns([2, 2, 1])
             name = c1.text_input(tr("Nama rakan", "Friend's name"), placeholder=tr("cth. Hakim", "e.g. Hakim"))
@@ -294,7 +296,7 @@ def owner_panel():
             if st.form_submit_button(tr("Cipta akaun penguji", "Create tester account"), type="primary",
                                      icon=":material/person_add:"):
                 try:
-                    key = share.add_member(user, name, days, "penguji", "pensyarah")
+                    key = share.add_member(user, name, days, "penguji", "penguji")
                     st.session_state["owner_tester_new"] = (user.strip().lower(), key)
                 except ValueError as e:
                     st.error(str(e), icon=":material/error:")

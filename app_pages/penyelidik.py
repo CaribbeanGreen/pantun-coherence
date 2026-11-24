@@ -163,8 +163,8 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
 
 decisions = read_log(DECISIONS_CSV)
 queue = []
-# Experts (and teachers in expert mode) see the cases teachers sent on ("Hantar kepada pakar"). Raw pupil
-# inquiries, which carry pupil names, stay with their teacher; only the owner sees those here too.
+# Experts see the cases teachers sent on ("Hantar kepada pakar"); a tester sees only the ones they sent themselves.
+# Raw pupil inquiries, which carry pupil names, stay with their teacher; only the owner sees those here too.
 if ME["kind"] == "owner":
     inq = inquiries_for(ME)
     queue += [{"from": f"{r.kind} ({r.who or tr('tanpa nama', 'anonymous')})",
@@ -173,7 +173,8 @@ if ME["kind"] == "owner":
 if not decisions.empty:
     queue += [{"from": f"{role('pensyarah').lower()} · {r._2} · {r.student}", "time": r.timestamp,
                "lines": [r.line1, r.line2, r.line3, r.line4], "note": r.note}
-              for r in decisions.itertuples() if r.action == "pakar"]
+              for r in decisions.itertuples()
+              if r.action == "pakar" and (ME["role"] != "penguji" or r.instructor == ME["username"])]
 rated = read_log(RATINGS_CSV)
 rated_keys = set() if rated.empty else {tuple(x) for x in rated[["line1", "line2", "line3", "line4"]].values}
 open_items = [q for q in queue if tuple(q["lines"]) not in rated_keys]
