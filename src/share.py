@@ -3,14 +3,14 @@
 Full explanation and rebuild guide: docs/sharing_guide.md.
 
 Who can get in (visitors come through the Cloudflare tunnel; their requests carry Cloudflare headers):
-  - MEMBERS (Ahli): the owner creates an account on the Kongsi page and gives the person a personal key that is
+  - MEMBERS (Ahli): the owner creates an account on the Tetapan page and gives the person a personal key that is
     valid for a chosen time (1 day, 1 week, ...). They log in with username + key; the browser is remembered for
     up to 24 hours (never past the key's end). Every login is kept in a permanent history. The owner can extend,
     reset the key, sign out all devices, or revoke the account at any time.
   - GUESTS (Tetamu): while the owner has switched guest sharing ON, anyone with the current 6-digit code
     (TOTP, RFC 6238, 30-second step, as in Google Authenticator) gets in; the browser is remembered for 2 hours. Each "round" of sharing
     starts fresh, and the owner can remove a guest device or block its IP address.
-  - On this computer (the owner) the app opens as normal and has the extra "Kongsi" page.
+  - On this computer (the owner) the app opens as normal and has the extra "Tetapan / Settings" page.
 
 Storage (results/ is in .gitignore and never leaves this computer):
   share.db             SQLite: members (hashed keys only), every login, the event log
@@ -42,7 +42,8 @@ import pandas as pd
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-from src import access_login, illus
+from src import access_login, illus, lang
+from src.lang import current as current_lang, role as role_name, tr
 from src.data_loader import PROJECT_ROOT
 
 SHARE_DIR = Path(os.environ.get("PANTUN_SHARE_DIR") or PROJECT_ROOT / "results")
@@ -227,6 +228,7 @@ def state():
             changed = True
         s.setdefault("members", True)
         s.setdefault("tester_open", False)
+        s.setdefault("default_lang", lang.DEFAULT)   # BM or EN for visitors who have not chosen
         for k, v in (("open", False), ("open_round", ""), ("open_until", 0)):
             s.setdefault(k, v)
         if s.get("enabled") and time.time() >= s.get("until", 0):
@@ -254,7 +256,13 @@ def set_sharing(on, hours=1.0):
     _log("tetamu: perkongsian hidup" if on else "tetamu: perkongsian mati", note=f"{hours:g} jam" if on else "")
 
 
-GUEST_MODES = {"tutup": "![](/app/static/i/lock.png) Tutup", "kod": "![](/app/static/i/ticket.png) Kod sahaja", "terbuka": "![](/app/static/i/globe.png) Terbuka"}
+GUEST_MODES = {"tutup": ("![](/app/static/i/lock.png) Tutup", "![](/app/static/i/lock.png) Closed"),
+               "kod": ("![](/app/static/i/ticket.png) Kod sahaja", "![](/app/static/i/ticket.png) Code only"),
+               "terbuka": ("![](/app/static/i/globe.png) Terbuka", "![](/app/static/i/globe.png) Open")}
+
+
+def mode_name(mode):
+    return tr(*GUEST_MODES[mode])
 
 
 def guest_mode(s=None):
@@ -395,7 +403,9 @@ def member_logins(username, limit=200):
                            "ORDER BY time DESC LIMIT ?", con, params=(username, limit))
 
 
-ROLES = {"pelajar": "Pelajar", "pensyarah": "Pensyarah", "penyelidik": "Penyelidik / Pakar"}
+# Account roles. The names people read come from src/lang.py (Murid / Pupil, Cikgu / Teacher, ...); these Malay
+# names are only for the event log, which stays in one language.
+ROLES = {k: role_name(k, "ms") for k in ("pelajar", "pensyarah", "penyelidik")}
 # Which views each kind of user may open (page url names). The owner (this computer) sees everything.
 # Teachers may also switch to the expert view ("mod pakar").
 ROLE_VIEWS = {"owner": ["pelajar", "pensyarah", "penyelidik"], "pelajar": ["pelajar"],
@@ -411,11 +421,14 @@ _signups: list = []
 def _check_username(username):
     username = str(username).strip().lower()
     if not USERNAME_RE.match(username):
-        raise ValueError("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.")
+        raise ValueError(tr("Nama pengguna: 3–24 aksara, huruf kecil, nombor, titik, sengkang atau garis bawah.",
+                            "Username: 3–24 characters: small letters, numbers, dot, dash or underscore."))
     with closing(_db()) as con:
         if con.execute("SELECT 1 FROM retired_usernames WHERE username=?", (username,)).fetchone():
-            raise ValueError(f"Nama pengguna '{username}' pernah digunakan oleh akaun yang telah dipadam dan tidak "
-                             "boleh digunakan semula. Pilih yang lain.")
+            raise ValueError(tr(f"Nama pengguna '{username}' pernah digunakan oleh akaun yang telah dipadam dan tidak "
+                                "boleh digunakan semula. Pilih yang lain.",
+                                f"The username '{username}' belonged to a deleted account and cannot be used again. "
+                                "Choose another one."))
     return username
 
 
@@ -423,7 +436,7 @@ def add_member(username, name, days, note="", role="pelajar", lecturer=""):
     """Owner creates an account. Returns the new key (shown once; only its hash is stored)."""
     username = _check_username(username)
     if role not in ROLES:
-        raise ValueError("Peranan tidak sah.")
+        raise ValueError(tr("Peranan tidak sah.", "Invalid role."))
     key, salt = new_key(), secrets.token_hex(16)
     try:
         with _lock, closing(_db()) as con, con:
@@ -432,7 +445,7 @@ def add_member(username, name, days, note="", role="pelajar", lecturer=""):
                         (username, name.strip() or username, note.strip(), _hash_key(key, salt), salt, time.time(),
                          time.time() + days * 86400, role))
     except sqlite3.IntegrityError:
-        raise ValueError(f"Nama pengguna '{username}' sudah wujud.") from None
+        raise ValueError(tr(f"Nama pengguna '{username}' sudah wujud.", f"The username '{username}' already exists.")) from None
     _log("ahli: dicipta", username, note=f"{ROLES[role]}, {days:g} hari")
     return key
 
@@ -443,40 +456,48 @@ def sign_up(name, username, password, password2, role, class_code, ip):
     username = _check_username(username)
     name = str(name).strip()
     if not name:
-        raise ValueError("Isi nama penuh anda.")
+        raise ValueError(tr("Isi nama penuh anda.", "Fill in your full name."))
     if len(password) < PASSWORD_MIN:
-        raise ValueError(f"Kata laluan sekurang-kurangnya {PASSWORD_MIN} aksara.")
+        raise ValueError(tr(f"Kata laluan sekurang-kurangnya {PASSWORD_MIN} aksara.",
+                            f"The password needs at least {PASSWORD_MIN} characters."))
     if password != password2:
-        raise ValueError("Kedua-dua kata laluan tidak sama.")
+        raise ValueError(tr("Kedua-dua kata laluan tidak sama.", "The two passwords are not the same."))
     if password.lower() == username:
-        raise ValueError("Kata laluan tidak boleh sama dengan nama pengguna.")
+        raise ValueError(tr("Kata laluan tidak boleh sama dengan nama pengguna.",
+                            "The password cannot be the same as the username."))
     if role not in ("pelajar", "pensyarah"):
-        raise ValueError("Pilih Pelajar atau Pensyarah.")
+        raise ValueError(tr(f"Pilih {role_name('pelajar')} atau {role_name('pensyarah')}.",
+                            f"Choose {role_name('pelajar')} or {role_name('pensyarah')}."))
     cls = get_class(class_code) if role == "pelajar" else None
     if role == "pelajar" and (not cls or not cls["active"]):
-        raise ValueError("Kod kelas tidak sah. Minta kod daripada pensyarah anda.")
+        raise ValueError(tr("Kod kelas tidak sah. Minta kod daripada cikgu anda.",
+                            "That class code is not valid. Ask your teacher for the code."))
     if cls and not cls["teacher_ok"]:
-        raise ValueError(TEACHER_GONE)
+        raise ValueError(teacher_gone())
     name = " ".join(name.split())
     with closing(_db()) as con:
         if con.execute("SELECT 1 FROM members WHERE username=?", (username,)).fetchone():
-            raise ValueError(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.")
+            raise ValueError(tr(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.",
+                                f"The username '{username}' is taken. Choose another one."))
         if cls:   # two students with the same name in one class: the teacher could not tell them apart
             same = con.execute("SELECT 1 FROM class_members c JOIN members m ON m.username = c.username "
                                "WHERE c.code=? AND lower(m.name)=?", (cls["code"], name.lower())).fetchone()
-            where = "dalam kelas ini"
+            where = tr("dalam kelas ini", "in this class")
         else:
             same = con.execute("SELECT 1 FROM members WHERE role='pensyarah' AND status!='dibatalkan' "
                                "AND lower(name)=?", (name.lower(),)).fetchone()
-            where = "sebagai pensyarah"
+            where = tr("sebagai cikgu", "as a teacher")
     if same:
-        raise ValueError(f"Nama '{name}' sudah berdaftar {where}. Jika itu akaun anda, log masuk sahaja. "
-                         "Jika bukan, tulis nama penuh anda (cth. tambah nama bapa) supaya mudah dibezakan.")
+        raise ValueError(tr(f"Nama '{name}' sudah berdaftar {where}. Jika itu akaun anda, log masuk sahaja. "
+                            "Jika bukan, tulis nama penuh anda (cth. tambah nama bapa) supaya mudah dibezakan.",
+                            f"The name '{name}' is already registered {where}. If that is your account, just log in. "
+                            "If not, write your full name (e.g. add your father's name) so people can tell you apart."))
     now = time.time()
     with _lock:
         _signups[:] = [(t, a) for t, a in _signups if now - t < SIGNUP_WINDOW]
         if sum(1 for _, a in _signups if a == ip) >= SIGNUPS_PER_IP:
-            raise ValueError("Terlalu banyak pendaftaran dari rangkaian ini. Cuba lagi dalam sejam.")
+            raise ValueError(tr("Terlalu banyak pendaftaran dari rangkaian ini. Cuba lagi dalam sejam.",
+                                "Too many sign-ups from this network. Try again in an hour."))
         _signups.append((now, ip))
     status = "aktif" if role == "pelajar" else "menunggu"
     salt = secrets.token_hex(16)
@@ -489,7 +510,8 @@ def sign_up(name, username, password, password2, role, class_code, ip):
             if cls:
                 con.execute("INSERT INTO class_members(code, username, joined) VALUES (?,?,?)", (cls["code"], username, now))
     except sqlite3.IntegrityError:
-        raise ValueError(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.") from None
+        raise ValueError(tr(f"Nama pengguna '{username}' sudah digunakan. Pilih yang lain.",
+                                f"The username '{username}' is taken. Choose another one.")) from None
     _log("daftar: " + ("pelajar" if role == "pelajar" else "pensyarah (menunggu kelulusan)"), username, ip,
          note=f"kelas {cls['code']}" if cls else "")
     return status
@@ -506,11 +528,12 @@ def approve_teacher(username, ok=True):
 
 def change_password(username, old, new, new2):
     if len(new) < PASSWORD_MIN:
-        raise ValueError(f"Kata laluan baharu sekurang-kurangnya {PASSWORD_MIN} aksara.")
+        raise ValueError(tr(f"Kata laluan baharu sekurang-kurangnya {PASSWORD_MIN} aksara.",
+                            f"The new password needs at least {PASSWORD_MIN} characters."))
     if new != new2:
-        raise ValueError("Kedua-dua kata laluan baharu tidak sama.")
+        raise ValueError(tr("Kedua-dua kata laluan baharu tidak sama.", "The two new passwords are not the same."))
     if authenticate(username, old)[0] != "ok":
-        raise ValueError("Kata laluan semasa salah.")
+        raise ValueError(tr("Kata laluan semasa salah.", "The current password is wrong."))
     salt = secrets.token_hex(16)
     with _lock, closing(_db()) as con, con:
         con.execute("UPDATE members SET key_hash=?, key_salt=?, cred='password', key_version=key_version+1 "
@@ -541,7 +564,8 @@ def _new_class_code():
 def create_class(teacher, name):
     name = str(name).strip()
     if not name:
-        raise ValueError("Isi nama kelas, contohnya 'BM2 · Pantun Nasihat'.")
+        raise ValueError(tr("Isi nama kelas, contohnya '4 Bestari · Pantun Nasihat'.",
+                            "Fill in a class name, for example '4 Bestari · Pantun Nasihat'."))
     for _ in range(10):
         code = _new_class_code()
         try:
@@ -552,7 +576,7 @@ def create_class(teacher, name):
             return code
         except sqlite3.IntegrityError:
             continue
-    raise ValueError("Tidak dapat membuat kod kelas. Cuba lagi.")
+    raise ValueError(tr("Tidak dapat membuat kod kelas. Cuba lagi.", "Could not make a class code. Try again."))
 
 
 def teacher_active(teacher):
@@ -565,8 +589,11 @@ def teacher_active(teacher):
     return bool(m) and m["status"] == "aktif" and m.get("role") == "pensyarah" and time.time() < m["expires"]
 
 
-TEACHER_GONE = ("Pensyarah kelas ini tidak aktif buat masa ini, jadi kelas tidak menerima pelajar baharu. "
-                "Minta kod kelas lain daripada pensyarah anda.")
+def teacher_gone():
+    return tr("Cikgu kelas ini tidak aktif buat masa ini, jadi kelas tidak menerima murid baharu. "
+              "Minta kod kelas lain daripada cikgu anda.",
+              "This class's teacher is not active right now, so the class is not taking new pupils. "
+              "Ask your teacher for another class code.")
 
 
 def get_class(code):
@@ -617,9 +644,9 @@ def transfer_class(code, new_teacher):
     """Owner moves a class (its students and all its inquiries, which follow the class code) to another lecturer."""
     cls = get_class(code)
     if not cls:
-        raise ValueError("Kelas tidak dijumpai.")
+        raise ValueError(tr("Kelas tidak dijumpai.", "Class not found."))
     if new_teacher and new_teacher not in lecturers():
-        raise ValueError("Pilih pensyarah yang aktif.")
+        raise ValueError(tr("Pilih cikgu yang aktif.", "Choose an active teacher."))
     with _lock, closing(_db()) as con, con:
         con.execute("UPDATE classes SET teacher=? WHERE code=?", (new_teacher, cls["code"]))
     _log("kelas: dipindah", new_teacher or "pemilik", note=f"{cls['name']} ({cls['code']}) daripada "
@@ -629,9 +656,9 @@ def transfer_class(code, new_teacher):
 def join_class(username, code):
     cls = get_class(code)
     if not cls or not cls["active"]:
-        raise ValueError("Kod kelas tidak sah atau kelas sudah ditutup.")
+        raise ValueError(tr("Kod kelas tidak sah atau kelas sudah ditutup.", "The class code is not valid or the class is closed."))
     if not cls["teacher_ok"]:
-        raise ValueError(TEACHER_GONE)
+        raise ValueError(teacher_gone())
     with _lock, closing(_db()) as con, con:
         con.execute("INSERT OR IGNORE INTO class_members(code, username, joined) VALUES (?,?,?)",
                     (cls["code"], username, time.time()))
@@ -717,7 +744,7 @@ def my_inquiries(username):
 
 def resolve_inquiry(inquiry_id, user, reply):
     if inquiry_id not in set(inquiries_for(user)["id"]):
-        raise ValueError("Anda tidak dibenarkan menyemak pertanyaan ini.")
+        raise ValueError(tr("Anda tidak dibenarkan menyemak pertanyaan ini.", "You may not answer this question."))
     with _lock, closing(_db()) as con, con:
         con.execute("UPDATE inquiries SET status='selesai', handled_by=?, reply=? WHERE id=?",
                     (user["username"] or "pemilik", reply.strip(), int(inquiry_id)))
@@ -727,16 +754,16 @@ def resolve_inquiry(inquiry_id, user, reply):
 def current_user():
     """Who is using this session: {'kind': owner|member|guest|public, 'role', 'username', 'name'}."""
     if not is_visitor():
-        return {"kind": "owner", "role": "owner", "username": "", "name": "Pemilik", "lecturer": ""}
+        return {"kind": "owner", "role": "owner", "username": "", "name": tr("Pemilik", "Owner"), "lecturer": ""}
     kind = st.session_state.get("share_kind")
     if kind == "member":
         m = get_member(st.session_state.get("share_user")) or {}
         return {"kind": "member", "role": m.get("role", "pelajar"), "username": m.get("username", ""),
                 "name": m.get("name", ""), "lecturer": ""}
     if kind == "public":
-        return {"kind": "public", "role": "guest", "username": "", "name": "Pelawat", "lecturer": ""}
+        return {"kind": "public", "role": "guest", "username": "", "name": role_name("pelawat"), "lecturer": ""}
     dev = _reg["devices"].get(st.session_state.get("share_did"), {})
-    return {"kind": "guest", "role": "guest", "username": "", "name": dev.get("name", "Tetamu"), "lecturer": ""}
+    return {"kind": "guest", "role": "guest", "username": "", "name": dev.get("name", role_name("tetamu")), "lecturer": ""}
 
 
 def allowed_views():
@@ -746,7 +773,8 @@ def allowed_views():
 def require_view(view):
     """Stop a page that this user may not open (the menu already hides it; this also guards direct links)."""
     if view not in allowed_views():
-        st.warning("Halaman ini hanya untuk pengguna yang dibenarkan.", icon=":material/lock:")
+        st.warning(tr("Halaman ini hanya untuk pengguna yang dibenarkan.", "This page is only for users who are allowed."),
+                   icon=":material/lock:")
         st.stop()
 
 
@@ -771,24 +799,27 @@ def user_bar():
     u = current_user()
     with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_userbar"):
         if u["kind"] == "public":
-            st.caption("![](/app/static/i/gutspose_man.png) **Pelawat** · tanpa log masuk")
-            st.button("Log masuk / Daftar", icon=":material/login:", type="tertiary", on_click=_want_login,
+            st.caption(f"![](/app/static/i/gutspose_man.png) **{role_name('pelawat')}** · "
+                       + tr("tanpa log masuk", "not logged in"))
+            st.button(tr("Log masuk / Daftar", "Log in / Sign up"), icon=":material/login:", type="tertiary", on_click=_want_login,
                       key="cz_login")
             return
-        st.caption(f"![](/app/static/i/gutspose_man.png) **{u['name']}** · {ROLES.get(u['role'], 'Tetamu')}")
+        role_txt = role_name(u["role"]) if u["role"] in ROLES else role_name("tetamu")
+        st.caption(f"![](/app/static/i/gutspose_man.png) **{u['name']}** · {role_txt}")
         if u["kind"] == "member":
-            with st.popover("Tukar kata laluan", icon=":material/password:", type="tertiary"):
+            with st.popover(tr("Tukar kata laluan", "Change password"), icon=":material/password:", type="tertiary"):
                 with st.form("cz_pw", border=False, clear_on_submit=True):
-                    old = st.text_input("Kata laluan / kunci semasa", type="password")
-                    new = st.text_input("Kata laluan baharu", type="password")
-                    new2 = st.text_input("Ulang kata laluan baharu", type="password")
-                    if st.form_submit_button("Simpan", type="primary"):
+                    old = st.text_input(tr("Kata laluan / kunci semasa", "Current password / key"), type="password")
+                    new = st.text_input(tr("Kata laluan baharu", "New password"), type="password")
+                    new2 = st.text_input(tr("Ulang kata laluan baharu", "Repeat new password"), type="password")
+                    if st.form_submit_button(tr("Simpan", "Save"), type="primary"):
                         try:
                             change_password(u["username"], old, new, new2)
-                            st.success("Kata laluan ditukar. Peranti lain akan dilog keluar.")
+                            st.success(tr("Kata laluan ditukar. Peranti lain akan dilog keluar.",
+                                          "Password changed. Other devices will be logged out."))
                         except ValueError as e:
                             st.error(str(e))
-        st.button("Log keluar", icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
+        st.button(tr("Log keluar", "Log out"), icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
 
 
 def reset_key(username, days=None):
@@ -1065,8 +1096,9 @@ _GATE_CSS = """<style>
 
 
 def _screen(title, malay, english, pic="", anim="wiggle"):
-    """Centre screen for visitors. `pic` is an Irasutoya picture (src/illus.py); without it, the gold logo dot."""
-    st.html(_GATE_CSS + illus.stage_html("login", title, malay, "Cenderawasih", english))
+    """Centre screen for visitors, in the visitor's language. (`pic` and `anim` are no longer used: every screen
+    shows the login stage of src/illus.py.)"""
+    st.html(_GATE_CSS + illus.stage_html("login", title, tr(malay, english), "Cenderawasih"))
 
 
 def gate():
@@ -1102,81 +1134,100 @@ def gate():
         _lock_out()
         _clear_cookie()
         if verdict == "blocked":
-            _screen("Akses disekat", "Pemilik telah menyekat peranti ini.", "The owner has blocked this device.",
+            _screen(tr("Akses disekat", "Access blocked"), "Pemilik telah menyekat peranti ini.", "The owner has blocked this device.",
                     "box_kara_hako", "pop")
         else:
-            _screen("Akses ditarik balik", "Akses anda telah ditamatkan oleh pemilik atau telah luput.",
+            _screen(tr("Akses ditarik balik", "Access withdrawn"), "Akses anda telah ditamatkan oleh pemilik atau telah luput.",
                     "Your access was ended by the owner or has expired.", "box_kara_hako", "pop")
         st.stop()
 
     if not s["members"] and not s["enabled"] and not s.get("open"):
-        _screen("Perkongsian ditutup",
+        _screen(tr("Perkongsian ditutup", "Sharing is closed"),
                 "Pemilik belum membuka akses ke Semak Pantun. Minta mereka hidupkan perkongsian.",
-                "Sharing is closed. Ask the owner to switch it on.", "yashinoki", "float")
+                "The owner has not opened Semak Pantun yet. Ask them to switch sharing on.", "yashinoki", "float")
         st.stop()
 
     _screen("Semak Pantun", "Log masuk dengan akaun anda, daftar akaun baharu, atau masuk dengan kod tetamu.",
-            "Log in, sign up (students need a class code from their teacher), or use a guest code.",
+            "Log in, sign up (pupils need a class code from their teacher), or use a guest code.",
             "key", "wiggle")
     with st.container(key="share_gate"):
         if s.get("open"):
-            st.button("← Teruskan tanpa log masuk", type="tertiary", key="cz_back_open",
+            st.button(tr("← Teruskan tanpa log masuk", "← Continue without logging in"), type="tertiary", key="cz_back_open",
                       on_click=lambda: st.session_state.pop("cz_want_login", None))
-        tabs = (["![](/app/static/i/gutspose_man.png) Log masuk", "![](/app/static/i/notebook.png) Daftar"] if s["members"] else []) + (["![](/app/static/i/ticket.png) Tetamu (kod)"] if s["enabled"] else [])
-        forms = {"![](/app/static/i/gutspose_man.png) Log masuk": _member_form, "![](/app/static/i/notebook.png) Daftar": _signup_form, "![](/app/static/i/ticket.png) Tetamu (kod)": _guest_form}
-        for tab, label in zip(st.tabs(tabs), tabs):
+        labels = {"login": "![](/app/static/i/gutspose_man.png) " + tr("Log masuk", "Log in"),
+                  "signup": "![](/app/static/i/notebook.png) " + tr("Daftar", "Sign up"),
+                  "guest": "![](/app/static/i/ticket.png) " + tr("Tetamu (kod)", "Guest (code)")}
+        forms = {"login": _member_form, "signup": _signup_form, "guest": _guest_form}
+        keys = (["login", "signup"] if s["members"] else []) + (["guest"] if s["enabled"] else [])
+        for tab, k in zip(st.tabs([labels[k] for k in keys]), keys):
             with tab:
-                forms[label](s, me)
+                forms[k](s, me)
     st.stop()
 
 
 def _signup_form(s, me):
     with st.form("signup_form", border=False, clear_on_submit=False):
-        role = st.radio("Saya seorang", ["pelajar", "pensyarah"], horizontal=True,
-                        format_func={"pelajar": "![](/app/static/i/backpack.png) Pelajar", "pensyarah": "![](/app/static/i/job_senesi.png) Pensyarah"}.get)
-        name = st.text_input("Nama penuh", max_chars=60)
-        user = st.text_input("Nama pengguna", max_chars=24, placeholder="huruf kecil, cth. aina.r")
-        pw = st.text_input("Kata laluan", type="password", placeholder=f"sekurang-kurangnya {PASSWORD_MIN} aksara")
-        pw2 = st.text_input("Ulang kata laluan", type="password")
-        code = st.text_input("Kod kelas (pelajar sahaja)", max_chars=8, placeholder="daripada pensyarah, cth. K7QM2X")
-        st.caption("Pensyarah: akaun anda aktif selepas diluluskan oleh pemilik. Pelajar: terus boleh log masuk.")
-        go = st.form_submit_button("Daftar", type="primary", icon=":material/person_add:", width="stretch")
+        pics = {"pelajar": "![](/app/static/i/backpack.png) ", "pensyarah": "![](/app/static/i/job_senesi.png) "}
+        role = st.radio(tr("Saya seorang", "I am a"), ["pelajar", "pensyarah"], horizontal=True,
+                        format_func=lambda k: pics[k] + role_name(k))
+        name = st.text_input(tr("Nama penuh", "Full name"), max_chars=60)
+        user = st.text_input(tr("Nama pengguna", "Username"), max_chars=24,
+                             placeholder=tr("huruf kecil, cth. aina.r", "small letters, e.g. aina.r"))
+        pw = st.text_input(tr("Kata laluan", "Password"), type="password",
+                           placeholder=tr(f"sekurang-kurangnya {PASSWORD_MIN} aksara", f"at least {PASSWORD_MIN} characters"))
+        pw2 = st.text_input(tr("Ulang kata laluan", "Repeat password"), type="password")
+        code = st.text_input(tr("Kod kelas (murid sahaja)", "Class code (pupils only)"), max_chars=8,
+                             placeholder=tr("daripada cikgu, cth. K7QM2X", "from your teacher, e.g. K7QM2X"))
+        st.caption(tr("Cikgu: akaun anda aktif selepas diluluskan oleh pemilik. Murid: terus boleh log masuk.",
+                      "Teachers: your account works once the owner approves it. Pupils: you can log in straight away."))
+        go = st.form_submit_button(tr("Daftar", "Sign up"), type="primary", icon=":material/person_add:", width="stretch")
     if go:
         try:
             status = sign_up(name, user, pw, pw2, role, code, me["ip"])
         except ValueError as e:
             st.error(str(e), icon=":material/error:")
             return
-        first = html.escape(str(name).strip().split(" ")[0]) or "anda"
+        first = html.escape(str(name).strip().split(" ")[0]) or tr("anda", "you")
         if status == "aktif":
-            illus.celebrate("Tahniah! <img class=cz-i alt src=/app/static/i/cracker.png>", f"Selamat datang ke Semak Pantun, <b>{first}</b>! Akaun pelajar anda sudah "
-                                         "sedia. Log masuk dan mula menyemak pantun.")
-            st.success("Akaun dicipta! Sila log masuk di tab **Log masuk**.", icon=":material/check_circle:")
+            illus.celebrate(tr("Tahniah!", "Well done!") + " <img class=cz-i alt src=/app/static/i/cracker.png>",
+                            tr(f"Selamat datang ke Semak Pantun, <b>{first}</b>! Akaun murid anda sudah sedia. "
+                               "Log masuk dan mula menyemak pantun.",
+                               f"Welcome to Semak Pantun, <b>{first}</b>! Your pupil account is ready. "
+                               "Log in and start checking pantun."))
+            st.success(tr("Akaun dicipta! Sila log masuk di tab **Log masuk**.",
+                          "Account created! Please log in on the **Log in** tab."), icon=":material/check_circle:")
         else:
-            illus.celebrate("Tahniah! <img class=cz-i alt src=/app/static/i/cracker.png>", f"Terima kasih, <b>{first}</b>! Akaun pensyarah anda sudah didaftarkan dan "
-                                         "akan aktif sebaik sahaja diluluskan oleh pemilik.", "job_senesi")
-            st.info("Akaun pensyarah dicipta dan **menunggu kelulusan pemilik**. Cuba log masuk selepas diluluskan.",
+            illus.celebrate(tr("Tahniah!", "Well done!") + " <img class=cz-i alt src=/app/static/i/cracker.png>",
+                            tr(f"Terima kasih, <b>{first}</b>! Akaun cikgu anda sudah didaftarkan dan akan aktif "
+                               "sebaik sahaja diluluskan oleh pemilik.",
+                               f"Thank you, <b>{first}</b>! Your teacher account is registered and will work as soon "
+                               "as the owner approves it."), "job_senesi")
+            st.info(tr("Akaun cikgu dicipta dan **menunggu kelulusan pemilik**. Cuba log masuk selepas diluluskan.",
+                       "Teacher account created and **waiting for the owner's approval**. Try logging in after that."),
                     icon=":material/hourglass_top:")
 
 
 def _member_form(s, me):
     with st.form("member_form", border=False):
-        user = st.text_input("Nama pengguna", max_chars=24, placeholder="nama pengguna")
-        key = st.text_input("Kata laluan atau kunci", type="password")
-        remember = st.checkbox("Ingat peranti ini (sehingga 24 jam)", value=True)
-        go = st.form_submit_button("Log masuk", type="primary", icon=":material/login:", width="stretch")
+        user = st.text_input(tr("Nama pengguna", "Username"), max_chars=24, placeholder=tr("nama pengguna", "username"))
+        key = st.text_input(tr("Kata laluan atau kunci", "Password or key"), type="password")
+        remember = st.checkbox(tr("Ingat peranti ini (sehingga 24 jam)", "Remember this device (up to 24 hours)"), value=True)
+        go = st.form_submit_button(tr("Log masuk", "Log in"), type="primary", icon=":material/login:", width="stretch")
     if go:
         if _fail_counts(me["ip"])[0] >= IP_FAILS:
-            st.error("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.", icon=":material/timer:")
+            st.error(tr("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.",
+                        "Too many wrong tries from this network. Try again in 10 minutes."), icon=":material/timer:")
             return
         verdict, m = authenticate(user, key)
         if verdict == "pending":
-            st.info("Akaun pensyarah anda masih **menunggu kelulusan** pemilik.", icon=":material/hourglass_top:")
+            st.info(tr("Akaun cikgu anda masih **menunggu kelulusan** pemilik.",
+                       "Your teacher account is still **waiting for the owner's approval**."), icon=":material/hourglass_top:")
             return
         if not m:
             _fail(me["ip"], "member")
             _log("ahli: log masuk gagal", str(user).strip().lower()[:24], me["ip"], me["country"], me["device"])
-            st.error("Nama pengguna atau kata laluan salah, atau akaun sudah luput.", icon=":material/error:")
+            st.error(tr("Nama pengguna atau kata laluan salah, atau akaun sudah luput.",
+                        "Wrong username or password, or the account has ended."), icon=":material/error:")
             return
         st.session_state.pop("cz_want_login", None)
         expires = min(time.time() + MEMBER_REMEMBER, m["expires"])
@@ -1189,21 +1240,24 @@ def _member_form(s, me):
 
 def _guest_form(s, me):
     with st.form("guest_form", border=False):
-        name = st.text_input("Nama anda", max_chars=40, placeholder="Nama anda (supaya pemilik kenal)")
-        code = st.text_input("Kod", max_chars=DIGITS, placeholder="••••••", label_visibility="collapsed")
-        remember = st.checkbox("Ingat peranti ini selama 2 jam", value=True)
-        go = st.form_submit_button("Masuk", type="primary", icon=":material/lock_open:", width="stretch")
+        name = st.text_input(tr("Nama anda", "Your name"), max_chars=40,
+                             placeholder=tr("Nama anda (supaya pemilik kenal)", "Your name (so the owner knows you)"))
+        code = st.text_input(tr("Kod", "Code"), max_chars=DIGITS, placeholder="••••••", label_visibility="collapsed")
+        remember = st.checkbox(tr("Ingat peranti ini selama 2 jam", "Remember this device for 2 hours"), value=True)
+        go = st.form_submit_button(tr("Masuk", "Enter"), type="primary", icon=":material/lock_open:", width="stretch")
     if go:
         mine, guests = _fail_counts(me["ip"])
         name = name.strip() or "(tiada nama)"
         reg = _registry(s["round"])
         if me["ip"] in reg["blocked"]:
-            st.error("Peranti ini disekat oleh pemilik.", icon=":material/block:")
+            st.error(tr("Peranti ini disekat oleh pemilik.", "The owner has blocked this device."), icon=":material/block:")
         elif guests >= ALL_FAILS:
-            st.error("Kod tetamu dijeda kerana terlalu banyak kod salah. Minta pemilik memulakan semula.",
+            st.error(tr("Kod tetamu dijeda kerana terlalu banyak kod salah. Minta pemilik memulakan semula.",
+                        "Guest codes are paused after too many wrong codes. Ask the owner to restart them."),
                      icon=":material/pause_circle:")
         elif mine >= IP_FAILS:
-            st.error("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.", icon=":material/timer:")
+            st.error(tr("Terlalu banyak cubaan salah dari rangkaian ini. Cuba lagi dalam 10 minit.",
+                        "Too many wrong tries from this network. Try again in 10 minutes."), icon=":material/timer:")
         elif verify(code):
             st.session_state.pop("cz_want_login", None)
             expires = min(time.time() + GUEST_REMEMBER, s["until"])
@@ -1216,7 +1270,8 @@ def _guest_form(s, me):
         else:
             _fail(me["ip"], "guest")
             _log("tetamu: kod salah", name, me["ip"], me["country"], me["device"])
-            st.error("Kod tidak sah atau sudah tamat. Minta kod baharu.", icon=":material/error:")
+            st.error(tr("Kod tidak sah atau sudah tamat. Minta kod baharu.", "The code is wrong or has run out. Ask for a new one."),
+                     icon=":material/error:")
 
 
 @st.fragment(run_every=HEARTBEAT)
@@ -1230,27 +1285,63 @@ def _watch():
 # ---- Owner page ----------------------------------------------------------------------------------
 
 def owner_page():
-    """'Kongsi' page (owner only): members, guest sharing with the live code, and the event log."""
-    st.title("Kongsi Semak Pantun", anchor=False)
-    st.caption(f"Alamat awam: {PUBLIC_URL} · jalankan Start Sharing.bat supaya alamat ini hidup")
-    tab_m, tab_g, tab_t, tab_l = st.tabs(["![](/app/static/i/gutspose_man.png) Ahli", "![](/app/static/i/globe.png) Akses tanpa akaun", "![](/app/static/i/test_tube.png) Penguji", "![](/app/static/i/paper.png) Log"])
+    """'Tetapan / Settings' page (owner only): members, access without an account, testers, language and the log."""
+    st.title(tr("Tetapan Semak Pantun", "Semak Pantun Settings"), anchor=False)
+    st.caption(tr(f"Alamat awam: {PUBLIC_URL}", f"Public address: {PUBLIC_URL}"))
+    kick = tr("Tetapan", "Settings")
+    tab_m, tab_g, tab_t, tab_b, tab_l = st.tabs([
+        "![](/app/static/i/gutspose_man.png) " + tr("Ahli", "Members"),
+        "![](/app/static/i/globe.png) " + tr("Akses tanpa akaun", "Access without an account"),
+        "![](/app/static/i/test_tube.png) " + role_name("penguji"),
+        "![](/app/static/i/speech.png) " + tr("Bahasa", "Language"),
+        "![](/app/static/i/paper.png) Log"])
     with tab_m:
-        illus.stage("ahli", "Ahli", "Akaun, peranan dan kelas.", "Kongsi")
+        illus.stage("ahli", tr("Ahli", "Members"), tr("Akaun, peranan dan kelas.", "Accounts, roles and classes."), kick)
         members_panel()
     with tab_g:
-        illus.stage("akses", "Akses Tanpa Akaun", "Siapa boleh masuk tanpa log masuk.", "Kongsi")
+        illus.stage("akses", tr("Akses Tanpa Akaun", "Access Without an Account"),
+                    tr("Siapa boleh masuk tanpa log masuk.", "Who can get in without logging in."), kick)
         guests_panel()
     with tab_t:
         from src import tester          # imported here: tester.py itself uses this module
-        illus.stage("ujian", "Penguji", "Jemput rakan, baca hasil dan nilai skor.", "Kongsi")
+        illus.stage("ujian", role_name("penguji"), tr("Jemput rakan, baca hasil dan nilai skor.",
+                                                      "Invite friends, read the results and judge the score."), kick)
         tester.owner_panel()
+    with tab_b:
+        language_panel()
     with tab_l:
-        illus.stage("log", "Log", "Siapa masuk dan apa yang berlaku.", "Kongsi")
+        illus.stage("log", "Log", tr("Siapa masuk dan apa yang berlaku.", "Who came in and what happened."), kick)
         log_panel()
+
+
+def _default_lang_changed():
+    with _lock:
+        s = state()
+        s["default_lang"] = st.session_state["owner_default_lang"]
+        _write(STATE_FILE, s)
+    _log("bahasa lalai ditukar", note=s["default_lang"])
+
+
+def language_panel():
+    """The language visitors see before they choose one themselves (each visitor can still flip BM / EN)."""
+    st.session_state.setdefault("owner_default_lang", state()["default_lang"])
+    st.segmented_control(tr("Bahasa lalai", "Default language"), list(lang.LANGS), key="owner_default_lang",
+                         format_func={"ms": "Bahasa Melayu", "en": "English"}.get, required=True,
+                         on_change=_default_lang_changed)
+    st.caption(tr("Bahasa ini dilihat oleh pelawat yang belum memilih bahasa. Setiap orang boleh menukar sendiri "
+                  "dengan suis BM / EN di bahagian atas setiap halaman.",
+                  "Visitors who have not chosen a language see this one. Everyone can still change it with the "
+                  "BM / EN switch at the top of every page."))
 
 
 DURATIONS = {"1 hari": 1, "3 hari": 3, "1 minggu": 7, "2 minggu": 14, "1 bulan": 30, "3 bulan": 91,
              "6 bulan": 182, "1 tahun": 365}
+DURATIONS_EN = dict(zip(DURATIONS, ["1 day", "3 days", "1 week", "2 weeks", "1 month", "3 months", "6 months",
+                                    "1 year"]))
+
+
+def duration_name(k):
+    return tr(k, DURATIONS_EN[k])
 WARN_DAYS = 3                                   # lecturer accounts ending within this many days are flagged
 
 
@@ -1263,11 +1354,18 @@ def _when(t):
 
 def _ago(t):
     d = int(time.time() - t)
+    if current_lang() == "en":
+        return f"{d} s ago" if d < 60 else f"{d // 60} min ago" if d < 3600 else \
+            f"{d // 3600} h ago" if d < 86400 else f"{d // 86400} days ago"
     return f"{d} s lalu" if d < 60 else f"{d // 60} min lalu" if d < 3600 else \
         f"{d // 3600} jam lalu" if d < 86400 else f"{d // 86400} hari lalu"
 
 
 def _key_message(username, key, expires):
+    if current_lang() == "en":
+        return (f"Semak Pantun access\nSite: {PUBLIC_URL}\nChoose 'Log in', then enter:\n"
+                f"Username: {username}\nPassword: {key}\nValid until: {_when(expires)}\n"
+                "You can change the password after logging in. Do not share it with anyone.")
     return (f"Akses Semak Pantun\nLaman: {PUBLIC_URL}\nPilih 'Log masuk', kemudian masukkan:\n"
             f"Nama pengguna: {username}\nKata laluan: {key}\nSah hingga: {_when(expires)}\n"
             "Anda boleh tukar kata laluan selepas log masuk. Jangan kongsi dengan orang lain.")
@@ -1282,53 +1380,71 @@ def members_panel():
     # The switch has a fixed key and saves only when the owner flips it (on_change). Passing the saved value as
     # `value=` instead made Streamlit treat it as a new widget after every save, so it flipped back and forth.
     st.session_state.setdefault("owner_members_on", s["members"])
-    st.toggle("Benarkan ahli log masuk", key="owner_members_on", on_change=_members_toggled,
-              help="Matikan untuk menutup akses semua ahli serta-merta (kunci mereka kekal).")
+    st.toggle(tr("Benarkan ahli log masuk", "Let members log in"), key="owner_members_on", on_change=_members_toggled,
+              help=tr("Matikan untuk menutup akses semua ahli serta-merta (kunci mereka kekal).",
+                      "Switch off to close access for all members at once (their keys stay)."))
 
     pending = [m for m in list_members() if m["status"] == "menunggu"]
     if pending:
         with st.container(border=True):
-            st.markdown(f"**![](/app/static/i/job_senesi.png) Pensyarah menunggu kelulusan ({len(pending)})**")
+            st.markdown(f"**![](/app/static/i/job_senesi.png) "
+                        + tr(f"Cikgu menunggu kelulusan ({len(pending)})", f"Teachers waiting for approval ({len(pending)})")
+                        + "**")
             for m in pending:
                 with st.container(horizontal=True, vertical_alignment="center"):
-                    st.markdown(f"**{m['name']}** · `{m['username']}` · :gray[daftar {_when(m['created'])}]")
-                    st.button("Luluskan", key=f"ok_{m['username']}", icon=":material/check:", type="primary",
+                    st.markdown(f"**{m['name']}** · `{m['username']}` · :gray[{tr('daftar', 'signed up')} {_when(m['created'])}]")
+                    st.button(tr("Luluskan", "Approve"), key=f"ok_{m['username']}", icon=":material/check:", type="primary",
                               on_click=approve_teacher, args=(m["username"], True))
-                    st.button("Tolak", key=f"no_{m['username']}", icon=":material/close:", type="tertiary",
+                    st.button(tr("Tolak", "Reject"), key=f"no_{m['username']}", icon=":material/close:", type="tertiary",
                               on_click=approve_teacher, args=(m["username"], False))
-            st.caption("Luluskan hanya orang yang anda kenal sebagai pensyarah: mereka boleh melihat pertanyaan "
-                       "pelajar kelas mereka dan pertanyaan tetamu.")
+            st.caption(tr("Luluskan hanya orang yang anda kenal sebagai cikgu: mereka boleh melihat pertanyaan "
+                          "murid kelas mereka dan pertanyaan tetamu.",
+                          "Approve only people you know are teachers: they can see questions from their classes' "
+                          "pupils and from guests."))
 
     lecturer_warnings()
 
     shown = st.session_state.get("owner_new_key")
     if shown:
         with st.container(border=True):
-            st.success(f"Kunci untuk **{shown['user']}**. Ia hanya dipaparkan **sekali**: salin dan hantar sekarang.",
+            st.success(tr(f"Kunci untuk **{shown['user']}**. Ia hanya dipaparkan **sekali**: salin dan hantar sekarang.",
+                          f"Key for **{shown['user']}**. It is shown only **once**: copy it and send it now."),
                        icon=":material/key:")
             st.code(_key_message(shown["user"], shown["key"], shown["expires"]), language=None)
-            if st.button("Sudah disalin", icon=":material/check:"):
+            if st.button(tr("Sudah disalin", "Copied"), icon=":material/check:"):
                 st.session_state.pop("owner_new_key")
                 st.rerun()
 
     # Students sign up themselves with a class code, so the owner only creates experts (no sign-up for them)
     # and, as a shortcut, teachers who are approved straight away.
-    with st.expander("![](/app/static/i/gift.png) Cipta akaun pakar atau pensyarah", expanded=False):
-        st.caption("Pakar hanya boleh dicipta di sini (tiada pendaftaran sendiri). Pensyarah yang dicipta di sini "
-                   "terus diluluskan. Pelajar pula mendaftar sendiri dengan kod kelas daripada pensyarah.")
+    with st.expander("![](/app/static/i/gift.png) " + tr("Cipta akaun pakar atau cikgu", "Create an expert or teacher account"),
+                     expanded=False):
+        st.caption(tr("Pakar hanya boleh dicipta di sini (tiada pendaftaran sendiri). Cikgu yang dicipta di sini "
+                      "terus diluluskan. Murid pula mendaftar sendiri dengan kod kelas daripada cikgu.",
+                      "Experts can only be created here (they cannot sign up). Teachers created here are approved "
+                      "at once. Pupils sign up themselves with a class code from their teacher."))
         with st.form("add_member", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            username = c1.text_input("Nama pengguna", placeholder="cth. drhasiah", max_chars=24)
-            name = c2.text_input("Nama penuh", placeholder="cth. Dr. Hasiah")
-            role = st.selectbox("Peranan", ["penyelidik", "pensyarah"], format_func=ROLES.get,
-                                help="Penyelidik / Pakar: Penyelidik + Pelajar. "
-                                     "Pensyarah: Pensyarah + mod pakar + Pelajar.")
+            username = c1.text_input(tr("Nama pengguna", "Username"), placeholder=tr("cth. drhasiah", "e.g. drhasiah"),
+                                     max_chars=24)
+            name = c2.text_input(tr("Nama penuh", "Full name"), placeholder=tr("cth. Dr. Hasiah", "e.g. Dr. Hasiah"))
+            role = st.selectbox(tr("Peranan", "Role"), ["penyelidik", "pensyarah"], format_func=role_name,
+                                help=tr(f"{role_name('penyelidik')}: halaman {role_name('penyelidik')} + "
+                                        f"{role_name('pelajar')}. {role_name('pensyarah')}: {role_name('pensyarah')} "
+                                        f"+ mod pakar + {role_name('pelajar')}.",
+                                        f"{role_name('penyelidik')}: the {role_name('penyelidik')} and "
+                                        f"{role_name('pelajar')} pages. {role_name('pensyarah')}: "
+                                        f"{role_name('pensyarah')} + expert mode + {role_name('pelajar')}."))
             c3, c4 = st.columns(2)
-            dur = c3.selectbox("Sah selama", list(DURATIONS), index=2,
-                               help="Untuk pensyarah, pilih tempoh satu semester atau lebih (cth. 6 bulan) supaya "
-                                    "kelas mereka tidak tertinggal tanpa pensyarah.")
-            note = c4.text_input("Catatan (pilihan)", placeholder="cth. penyelia CSC575")
-            if st.form_submit_button("Cipta akaun dan kunci", type="primary", icon=":material/person_add:"):
+            dur = c3.selectbox(tr("Sah selama", "Valid for"), list(DURATIONS), index=2, format_func=duration_name,
+                               help=tr("Untuk cikgu, pilih tempoh satu penggal atau lebih (cth. 6 bulan) supaya "
+                                       "kelas mereka tidak tertinggal tanpa cikgu.",
+                                       "For teachers, choose a school term or longer (e.g. 6 months) so their "
+                                       "classes are not left without a teacher."))
+            note = c4.text_input(tr("Catatan (pilihan)", "Note (optional)"),
+                                 placeholder=tr("cth. penyelia CSC575", "e.g. CSC575 supervisor"))
+            if st.form_submit_button(tr("Cipta akaun dan kunci", "Create account and key"), type="primary",
+                                     icon=":material/person_add:"):
                 try:
                     key = add_member(username, name, DURATIONS[dur], note, role)
                     m = get_member(username.strip().lower())
@@ -1350,21 +1466,29 @@ def lecturer_warnings():
     if not rows:
         return
     with st.container(border=True):
-        st.markdown(f"**![](/app/static/i/warning.png) Akaun pensyarah hampir / sudah luput ({len(rows)})**")
+        st.markdown("**![](/app/static/i/warning.png) " + tr(f"Akaun cikgu hampir / sudah luput ({len(rows)})",
+                                                             f"Teacher accounts ending soon / ended ({len(rows)})") + "**")
         for m in rows:
             u, gone = m["username"], m["expires"] <= now
             with st.container(horizontal=True, vertical_alignment="center"):
-                st.markdown(f"**{m['name']}** · `{u}` · " + (f":red[luput {_when(m['expires'])}]" if gone else
-                            f":orange[luput {_when(m['expires'])} ({_left(m['expires'])})]"))
-                st.button("+1 bulan", key=f"w30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
-                st.button("+6 bulan", key=f"w182_{u}", on_click=extend_member, args=(u, 182), type="tertiary")
-                st.button("+1 tahun", key=f"w365_{u}", on_click=extend_member, args=(u, 365), type="tertiary")
-        st.caption("Selagi akaun luput, kelasnya tidak menerima pelajar baharu dan pertanyaan pelajarnya hanya "
-                   "dilihat oleh anda (Pensyarah → Semakan). Lanjutkan akaun, atau pindahkan kelas di **![](/app/static/i/school.png) Kelas**.")
+                ends = tr("luput", "ends")
+                st.markdown(f"**{m['name']}** · `{u}` · " + (f":red[{ends} {_when(m['expires'])}]" if gone else
+                            f":orange[{ends} {_when(m['expires'])} ({_left(m['expires'])})]"))
+                st.button(tr("+1 bulan", "+1 month"), key=f"w30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
+                st.button(tr("+6 bulan", "+6 months"), key=f"w182_{u}", on_click=extend_member, args=(u, 182), type="tertiary")
+                st.button(tr("+1 tahun", "+1 year"), key=f"w365_{u}", on_click=extend_member, args=(u, 365), type="tertiary")
+        st.caption(tr(f"Selagi akaun luput, kelasnya tidak menerima murid baharu dan pertanyaan muridnya hanya "
+                      f"dilihat oleh anda ({role_name('pensyarah')} → Semakan). Lanjutkan akaun, atau pindahkan kelas "
+                      "di **![](/app/static/i/school.png) Kelas**.",
+                      f"While the account has ended, its classes take no new pupils and only you see their pupils' "
+                      f"questions ({role_name('pensyarah')} → Reviews). Extend the account, or move the class under "
+                      "**![](/app/static/i/school.png) Classes**."))
 
 
 def _left(t):
     d = t - time.time()
+    if current_lang() == "en":
+        return f"{int(d // 3600)} h left" if d < 86400 else f"{int(d // 86400)} days left"
     return f"{int(d // 3600)} jam lagi" if d < 86400 else f"{int(d // 86400)} hari lagi"
 
 
@@ -1377,7 +1501,7 @@ def _open_inquiries_by_class():
 def _do_transfer(code):
     try:
         transfer_class(code, st.session_state[f"tr_{code}"])
-        st.session_state["owner_transfer_msg"] = ("ok", f"Kelas {code} dipindahkan.")
+        st.session_state["owner_transfer_msg"] = ("ok", tr(f"Kelas {code} dipindahkan.", f"Class {code} moved."))
     except ValueError as e:
         st.session_state["owner_transfer_msg"] = ("err", str(e))
 
@@ -1388,25 +1512,31 @@ def classes_panel():
     if not classes:
         return
     orphans = [c for c in classes if not c["teacher_ok"]]
-    title = f"![](/app/static/i/school.png) Kelas ({len(classes)})" + (f" · ![](/app/static/i/warning.png) {len(orphans)} tanpa pensyarah aktif" if orphans else "")
+    title = f"![](/app/static/i/school.png) {tr('Kelas', 'Classes')} ({len(classes)})" + (
+        f" · ![](/app/static/i/warning.png) {len(orphans)} " + tr("tanpa cikgu aktif", "without an active teacher")
+        if orphans else "")
     with st.expander(title, expanded=bool(orphans)):
         msg = st.session_state.pop("owner_transfer_msg", None)
         if msg:
             (st.success if msg[0] == "ok" else st.error)(msg[1])
-        st.caption("Pindah kelas: pelajar dan semua pertanyaan kelas itu ikut berpindah kepada pensyarah baharu.")
+        st.caption(tr("Pindah kelas: murid dan semua pertanyaan kelas itu ikut berpindah kepada cikgu baharu.",
+                      "Moving a class: its pupils and all its questions move to the new teacher."))
         open_q, teachers = _open_inquiries_by_class(), lecturers()
-        choices = {"": "Pemilik (saya)", **teachers}
+        choices = {"": tr("Pemilik (saya)", "Owner (me)"), **teachers}
         for c in classes:
-            who = c["teacher_name"] or (c["teacher"] and f"{c['teacher']} (dipadam)") or "pemilik"
-            flag = "" if c["teacher_ok"] else " · :red-badge[pensyarah tidak aktif]"
+            who = (c["teacher_name"] or (c["teacher"] and f"{c['teacher']} ({tr('dipadam', 'deleted')})")
+                   or tr("pemilik", "owner"))
+            flag = "" if c["teacher_ok"] else f" · :red-badge[{tr('cikgu tidak aktif', 'teacher not active')}]"
             n_open = open_q.get(c["code"], 0)
             with st.container(horizontal=True, vertical_alignment="center"):
-                st.markdown(f"**{c['name']}** `{c['code']}` · {who}{flag}  \n:gray[{c['n_students']} pelajar"
-                            + (f" · {n_open} pertanyaan belum dijawab" if n_open else "") + "]")
-                with st.popover("Pindah", icon=":material/swap_horiz:", type="tertiary"):
-                    st.selectbox("Pindah kepada", list(choices), format_func=choices.get, key=f"tr_{c['code']}",
+                st.markdown(f"**{c['name']}** `{c['code']}` · {who}{flag}  \n:gray[{c['n_students']} "
+                            + tr("murid", "pupils")
+                            + (" · " + tr(f"{n_open} pertanyaan belum dijawab", f"{n_open} unanswered questions")
+                               if n_open else "") + "]")
+                with st.popover(tr("Pindah", "Move"), icon=":material/swap_horiz:", type="tertiary"):
+                    st.selectbox(tr("Pindah kepada", "Move to"), list(choices), format_func=choices.get, key=f"tr_{c['code']}",
                                  index=list(choices).index(c["teacher"]) if c["teacher"] in choices else 0)
-                    st.button("Pindahkan", key=f"trgo_{c['code']}", type="primary", on_click=_do_transfer,
+                    st.button(tr("Pindahkan", "Move"), key=f"trgo_{c['code']}", type="primary", on_click=_do_transfer,
                               args=(c["code"],))
 
 
@@ -1419,57 +1549,66 @@ def members_list():
         live = {k: v for k, v in _live.items() if now - v["last"] < ONLINE_FOR}
     online = {v["user"] for v in live.values()}
     with st.container(horizontal=True):
-        st.metric("ahli", len(members), border=True)
-        st.metric("aktif", sum(1 for m in members if m["status"] == "aktif" and now < m["expires"]), border=True)
-        st.metric("dalam talian", len(online), border=True)
-        st.metric("log masuk (7 hari)", _count_logins(7), border=True)
+        st.metric(tr("ahli", "members"), len(members), border=True)
+        st.metric(tr("aktif", "active"), sum(1 for m in members if m["status"] == "aktif" and now < m["expires"]),
+                  border=True)
+        st.metric(tr("dalam talian", "online"), len(online), border=True)
+        st.metric(tr("log masuk (7 hari)", "logins (7 days)"), _count_logins(7), border=True)
     if not members:
-        st.caption("Belum ada ahli. Tambah ahli di atas, kemudian hantar kunci kepada mereka.")
+        st.caption(tr("Belum ada ahli. Tambah ahli di atas, kemudian hantar kunci kepada mereka.",
+                      "No members yet. Add one above, then send them their key."))
     for m in members:
         u = m["username"]
         expired = now >= m["expires"]
-        status = ("![](/app/static/i/clock.png) Menunggu kelulusan" if m["status"] == "menunggu" else "![](/app/static/i/ng_mark.png) Dibatalkan" if m["status"] != "aktif"
-                  else "![](/app/static/i/hourglass.png) Luput" if expired else "![](/app/static/i/ok_mark.png) Dalam talian" if u in online else "![](/app/static/i/ok_mark.png) Aktif")
-        last = f"{_ago(m['last_login'])}" if m["last_login"] else "belum pernah"
+        status = ("![](/app/static/i/clock.png) " + tr("Menunggu kelulusan", "Waiting for approval")
+                  if m["status"] == "menunggu" else
+                  "![](/app/static/i/ng_mark.png) " + tr("Dibatalkan", "Revoked") if m["status"] != "aktif" else
+                  "![](/app/static/i/hourglass.png) " + tr("Luput", "Ended") if expired else
+                  "![](/app/static/i/ok_mark.png) " + (tr("Dalam talian", "Online") if u in online else tr("Aktif", "Active")))
+        last = f"{_ago(m['last_login'])}" if m["last_login"] else tr("belum pernah", "never")
         with st.container(border=True):
-            role_txt = ROLES.get(m.get("role", "pelajar"), "Pelajar")
+            role_txt = role_name(m.get("role") or "pelajar")
             if m.get("role") == "pelajar":
                 cls = ", ".join(c["code"] for c in student_classes(u))
-                role_txt += f" · kelas {cls}" if cls else " · tiada kelas"
+                role_txt += (f" · {tr('kelas', 'class')} {cls}" if cls else " · " + tr("tiada kelas", "no class"))
             st.markdown(f"**{m['name']}** · `{u}` · :blue-badge[{role_txt}] · {status}  \n"
-                        f":gray[Sah hingga {_when(m['expires'])} · {m['n_logins']} log masuk · terakhir {last}"
+                        + tr(f":gray[Sah hingga {_when(m['expires'])} · {m['n_logins']} log masuk · terakhir {last}",
+                             f":gray[Valid until {_when(m['expires'])} · {m['n_logins']} logins · last {last}")
                         + (f" · {m['note']}" if m["note"] else "") + "]")
             if m["status"] == "menunggu":
-                st.caption("Luluskan atau tolak di kotak **Pensyarah menunggu kelulusan** di atas.")
+                st.caption(tr("Luluskan atau tolak di kotak **Cikgu menunggu kelulusan** di atas.",
+                              "Approve or reject in the **Teachers waiting for approval** box above."))
                 continue
             with st.container(horizontal=True):
-                st.button("+1 hari", key=f"x1_{u}", on_click=extend_member, args=(u, 1), type="tertiary")
-                st.button("+1 minggu", key=f"x7_{u}", on_click=extend_member, args=(u, 7), type="tertiary")
-                st.button("+1 bulan", key=f"x30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
-                st.button("Kunci baharu", key=f"rk_{u}", icon=":material/key:", type="tertiary",
+                st.button(tr("+1 hari", "+1 day"), key=f"x1_{u}", on_click=extend_member, args=(u, 1), type="tertiary")
+                st.button(tr("+1 minggu", "+1 week"), key=f"x7_{u}", on_click=extend_member, args=(u, 7), type="tertiary")
+                st.button(tr("+1 bulan", "+1 month"), key=f"x30_{u}", on_click=extend_member, args=(u, 30), type="tertiary")
+                st.button(tr("Kunci baharu", "New key"), key=f"rk_{u}", icon=":material/key:", type="tertiary",
                           on_click=_reset_and_show, args=(u,))
-                st.button("Log keluar peranti", key=f"so_{u}", icon=":material/logout:", type="tertiary",
+                st.button(tr("Log keluar peranti", "Log out devices"), key=f"so_{u}", icon=":material/logout:", type="tertiary",
                           on_click=sign_out_member, args=(u,))
                 if m["status"] == "aktif":
-                    st.button("Batalkan", key=f"rv_{u}", icon=":material/block:", type="tertiary",
+                    st.button(tr("Batalkan", "Revoke"), key=f"rv_{u}", icon=":material/block:", type="tertiary",
                               on_click=set_member_status, args=(u, False))
                 else:
-                    st.button("Aktifkan semula", key=f"ra_{u}", icon=":material/check_circle:", type="tertiary",
+                    st.button(tr("Aktifkan semula", "Reactivate"), key=f"ra_{u}", icon=":material/check_circle:", type="tertiary",
                               on_click=set_member_status, args=(u, True))
-                st.button("Padam", key=f"del_{u}", icon=":material/delete:", type="tertiary",
+                st.button(tr("Padam", "Delete"), key=f"del_{u}", icon=":material/delete:", type="tertiary",
                           on_click=delete_member, args=(u,),
-                          help="Akaun dipadam; sejarah log masuk disimpan. Nama pengguna ini tidak boleh didaftar "
-                               "semula. Kelas pensyarah kekal: pindahkan di Kelas.")
-                with st.popover("Tukar peranan", icon=":material/badge:", type="tertiary"):
-                    new_role = st.selectbox("Peranan", list(ROLES), format_func=ROLES.get, key=f"role_{u}",
+                          help=tr("Akaun dipadam; sejarah log masuk disimpan. Nama pengguna ini tidak boleh didaftar "
+                                  "semula. Kelas cikgu kekal: pindahkan di Kelas.",
+                                  "The account is deleted; its login history is kept. This username cannot be used "
+                                  "again. A teacher's classes stay: move them under Classes."))
+                with st.popover(tr("Tukar peranan", "Change role"), icon=":material/badge:", type="tertiary"):
+                    new_role = st.selectbox(tr("Peranan", "Role"), list(ROLES), format_func=role_name, key=f"role_{u}",
                                             index=list(ROLES).index(m.get("role") or "pelajar"))
-                    st.button("Simpan", key=f"saverole_{u}", type="primary", on_click=_save_role, args=(u,))
+                    st.button(tr("Simpan", "Save"), key=f"saverole_{u}", type="primary", on_click=_save_role, args=(u,))
             if m["n_logins"]:
-                with st.expander(f"Sejarah log masuk ({m['n_logins']})"):
+                with st.expander(tr(f"Sejarah log masuk ({m['n_logins']})", f"Login history ({m['n_logins']})")):
                     h = member_logins(u)
                     h["time"] = h["time"].map(_when)
-                    st.dataframe(h.rename(columns={"time": "masa", "country": "negara", "device": "peranti",
-                                                   "how": "cara"}), hide_index=True)
+                    st.dataframe(h.rename(columns=tr({"time": "masa", "country": "negara", "device": "peranti",
+                                                      "how": "cara"}, {"time": "time"})), hide_index=True)
 
 
 def _save_role(username):
@@ -1492,35 +1631,54 @@ def guests_panel():
     s = state()
     mode = guest_mode(s)
     with st.container(border=True):
-        st.markdown("**Akses tanpa akaun**: siapa boleh masuk tanpa log masuk? Halaman pensyarah dan pakar "
-                    "sentiasa perlukan akaun.")
-        st.markdown("""
+        pupil = role_name("pelajar")
+        if current_lang() == "en":
+            st.markdown("**Access without an account**: who can get in without logging in? The teacher and expert "
+                        "pages always need an account.")
+            st.markdown(f"""
+| | Who can get in without an account |
+|---|---|
+| ![](/app/static/i/lock.png) **Closed** | Nobody: everyone must log in, guest codes do not work |
+| ![](/app/static/i/ticket.png) **Code only** | Only people you give the 30-second code to ({pupil} page) |
+| ![](/app/static/i/globe.png) **Open** | Anyone, straight to the {pupil} page without a code |
+""")
+        else:
+            st.markdown("**Akses tanpa akaun**: siapa boleh masuk tanpa log masuk? Halaman cikgu dan pakar "
+                        "sentiasa perlukan akaun.")
+            st.markdown(f"""
 | | Siapa boleh masuk tanpa akaun |
 |---|---|
 | ![](/app/static/i/lock.png) **Tutup** | Tiada sesiapa: semua perlu log masuk, kod tetamu tidak berfungsi |
-| ![](/app/static/i/ticket.png) **Kod sahaja** | Hanya orang yang anda beri kod 30 saat (halaman Pelajar) |
-| ![](/app/static/i/globe.png) **Terbuka** | Sesiapa sahaja, terus ke halaman Pelajar tanpa kod |
+| ![](/app/static/i/ticket.png) **Kod sahaja** | Hanya orang yang anda beri kod 30 saat (halaman {pupil}) |
+| ![](/app/static/i/globe.png) **Terbuka** | Sesiapa sahaja, terus ke halaman {pupil} tanpa kod |
 """)
         if mode == "tutup":
-            st.info("Sekarang: **![](/app/static/i/lock.png) Tutup**. Hanya pengguna berakaun boleh masuk.", icon=":material/lock:")
+            st.info(tr("Sekarang: **![](/app/static/i/lock.png) Tutup**. Hanya pengguna berakaun boleh masuk.",
+                       "Now: **![](/app/static/i/lock.png) Closed**. Only users with an account can get in."),
+                    icon=":material/lock:")
         else:
             ends = datetime.fromtimestamp(s["until"] if mode == "kod" else s["open_until"])
-            st.success(f"Sekarang: **{GUEST_MODES[mode]}** sehingga {ends:%H:%M} ({ends:%d/%m}).",
+            st.success(tr(f"Sekarang: **{mode_name(mode)}** sehingga {ends:%H:%M} ({ends:%d/%m}).",
+                          f"Now: **{mode_name(mode)}** until {ends:%H:%M} ({ends:%d/%m})."),
                        icon=":material/share:")
         with st.form("guest_mode_form", border=False):
             c1, c2 = st.columns(2)
-            new_mode = c1.segmented_control("Tukar kepada", list(GUEST_MODES), format_func=GUEST_MODES.get,
+            new_mode = c1.segmented_control(tr("Tukar kepada", "Change to"), list(GUEST_MODES), format_func=mode_name,
                                             default=mode, required=True)
-            hours = c2.segmented_control("Selama (untuk Kod / Terbuka)", [0.5, 1, 2, 4, 8], default=1,
-                                         required=True, format_func=lambda h: "30 min" if h == 0.5 else f"{h:g} jam")
-            if st.form_submit_button("Simpan", type="primary", icon=":material/save:"):
+            hours = c2.segmented_control(tr("Selama (untuk Kod / Terbuka)", "For (Code / Open)"), [0.5, 1, 2, 4, 8],
+                                         default=1, required=True,
+                                         format_func=lambda h: "30 min" if h == 0.5 else f"{h:g} " + tr("jam", "h"))
+            if st.form_submit_button(tr("Simpan", "Save"), type="primary", icon=":material/save:"):
                 set_guest_mode(new_mode, hours)
                 st.rerun()
-        st.caption(f"Setiap perubahan mengunci tetamu dan pelawat sedia ada dalam masa {HEARTBEAT} saat dan memadam "
-                   "pertanyaan sementara mereka. Ia kembali kepada Tutup sendiri apabila masa tamat.")
+        st.caption(tr(f"Setiap perubahan mengunci tetamu dan pelawat sedia ada dalam masa {HEARTBEAT} saat dan memadam "
+                      "pertanyaan sementara mereka. Ia kembali kepada Tutup sendiri apabila masa tamat.",
+                      f"Every change locks out current guests and visitors within {HEARTBEAT} seconds and deletes "
+                      "their temporary questions. It goes back to Closed by itself when the time is up."))
         if mode == "kod":
-            st.button("Keluarkan semua tetamu", icon=":material/group_remove:", on_click=kick_all,
-                      help="Semua tetamu perlu memasukkan kod baharu. Mod Kod sahaja kekal.")
+            st.button(tr("Keluarkan semua tetamu", "Remove all guests"), icon=":material/group_remove:", on_click=kick_all,
+                      help=tr("Semua tetamu perlu memasukkan kod baharu. Mod Kod sahaja kekal.",
+                              "Every guest must enter a new code. Code-only mode stays on."))
     if mode == "kod":
         live_code()
         guest_devices()
@@ -1535,18 +1693,21 @@ def live_code():
     left = PERIOD - (now % PERIOD)
     code = code_at(s["secret"], now)
     deg = 360 * left / PERIOD
-    grace = (f"kod sebelumnya masih diterima {PERIOD * GRACE_STEPS} saat lagi" if GRACE_STEPS
-             else "hanya kod semasa diterima")
+    grace = (tr(f"kod sebelumnya masih diterima {PERIOD * GRACE_STEPS} saat lagi",
+                f"the previous code still works for {PERIOD * GRACE_STEPS} more seconds") if GRACE_STEPS
+             else tr("hanya kod semasa diterima", "only the current code works"))
+    give = tr(f"Berikan kod ini kepada tetamu. Ia bertukar setiap {PERIOD} saat ({grace}).",
+              f"Give this code to your guests. It changes every {PERIOD} seconds ({grace}).")
     st.html(f"""
 <div style="display:flex;align-items:center;gap:22px;justify-content:center;margin:18px 0 6px;font-family:'Nunito',sans-serif">
   <div style="font:800 3.4rem 'JetBrains Mono',monospace;letter-spacing:.18em;color:#0C525C">{code[:3]}&nbsp;{code[3:]}</div>
-  <div role="img" aria-label="{int(left)} saat lagi" style="width:62px;height:62px;border-radius:50%;
+  <div role="img" aria-label="{int(left)} s" style="width:62px;height:62px;border-radius:50%;
        background:conic-gradient(#DEB251 {deg:.0f}deg,#E6E1D6 0);display:flex;align-items:center;justify-content:center">
     <div style="width:46px;height:46px;border-radius:50%;background:#FBF7EE;display:flex;align-items:center;
          justify-content:center;font-weight:800;color:#1F2A2E">{int(left)}s</div>
   </div>
 </div>
-<div style="text-align:center;color:#5b6670;font-size:.95rem">Berikan kod ini kepada tetamu. Ia bertukar setiap {PERIOD} saat ({grace}).</div>""")
+<div style="text-align:center;color:#5b6670;font-size:.95rem">{give}</div>""")
 
 
 @st.fragment(run_every=5)
@@ -1562,36 +1723,45 @@ def guest_devices():
     _, guests = _fail_counts(None)
     online = [d for d in devices if d["status"] == "aktif" and now - d.get("last", 0) < ONLINE_FOR]
 
-    st.subheader("Peranti tetamu", anchor=False)
+    st.subheader(tr("Peranti tetamu", "Guest devices"), anchor=False)
     with st.container(horizontal=True):
-        st.metric("dalam talian sekarang", len(online), border=True)
-        st.metric("peranti pusingan ini", len(devices), border=True)
-        st.metric("kod salah (1 jam)", guests, border=True,
-                  help=f"Pada {ALL_FAILS}, kod tetamu dijeda. Mulakan semula kod tetamu untuk set semula.")
-        st.metric("IP disekat", len(blocked), border=True)
+        st.metric(tr("dalam talian sekarang", "online now"), len(online), border=True)
+        st.metric(tr("peranti pusingan ini", "devices this round"), len(devices), border=True)
+        st.metric(tr("kod salah (1 jam)", "wrong codes (1 hour)"), guests, border=True,
+                  help=tr(f"Pada {ALL_FAILS}, kod tetamu dijeda. Mulakan semula kod tetamu untuk set semula.",
+                          f"At {ALL_FAILS}, guest codes pause. Restart guest codes to reset."))
+        st.metric(tr("IP disekat", "blocked IPs"), len(blocked), border=True)
     if guests >= ALL_FAILS:
-        st.warning("Terlalu banyak kod salah: kod tetamu dijeda. Seseorang mungkin cuba meneka. Matikan dan "
-                   "hidupkan semula kod tetamu untuk set semula.", icon=":material/warning:")
+        st.warning(tr("Terlalu banyak kod salah: kod tetamu dijeda. Seseorang mungkin cuba meneka. Matikan dan "
+                      "hidupkan semula kod tetamu untuk set semula.",
+                      "Too many wrong codes: guest codes are paused. Someone may be guessing. Switch guest codes "
+                      "off and on again to reset."), icon=":material/warning:")
     if not devices:
-        st.caption("Belum ada tetamu masuk dalam pusingan ini.")
+        st.caption(tr("Belum ada tetamu masuk dalam pusingan ini.", "No guests have come in this round yet."))
     for d in devices:
         is_online = d["status"] == "aktif" and now - d.get("last", 0) < ONLINE_FOR
-        status = {"aktif": "![](/app/static/i/ok_mark.png) Dalam talian" if is_online else "![](/app/static/i/moon.png) Tidak aktif",
-                  "dikeluarkan": "![](/app/static/i/ng_mark.png) Dikeluarkan", "disekat": "![](/app/static/i/ng_mark.png) Disekat"}[d["status"]]
-        until = f" · diingati hingga {_when(d['until'])}" if d["status"] == "aktif" and d.get("until") else ""
+        status = {"aktif": "![](/app/static/i/ok_mark.png) " + tr("Dalam talian", "Online") if is_online
+                  else "![](/app/static/i/moon.png) " + tr("Tidak aktif", "Idle"),
+                  "dikeluarkan": "![](/app/static/i/ng_mark.png) " + tr("Dikeluarkan", "Removed"),
+                  "disekat": "![](/app/static/i/ng_mark.png) " + tr("Disekat", "Blocked")}[d["status"]]
+        until = (" · " + tr("diingati hingga", "remembered until") + f" {_when(d['until'])}"
+                 if d["status"] == "aktif" and d.get("until") else "")
         with st.container(border=True, horizontal=True, vertical_alignment="center"):
             st.markdown(f"**{d['name']}**  \n{d['device']} · `{d['ip']}` · {d['country']}  \n"
-                        f":gray[Masuk {_when(d['first'])} · aktif {_ago(d.get('last', d['first']))}"
-                        f" · {d.get('visits', 1)} lawatan{until} · {status}]")
+                        + tr(f":gray[Masuk {_when(d['first'])} · aktif {_ago(d.get('last', d['first']))}"
+                             f" · {d.get('visits', 1)} lawatan",
+                             f":gray[Came in {_when(d['first'])} · active {_ago(d.get('last', d['first']))}"
+                             f" · {d.get('visits', 1)} visits")
+                        + f"{until} · {status}]")
             if d["status"] == "aktif":
-                st.button("Keluarkan", key=f"kick_{d['id']}", icon=":material/logout:", width="content",
+                st.button(tr("Keluarkan", "Remove"), key=f"kick_{d['id']}", icon=":material/logout:", width="content",
                           on_click=remove_device, args=(d["id"],))
-                st.button("Sekat IP", key=f"block_{d['id']}", icon=":material/block:", width="content",
+                st.button(tr("Sekat IP", "Block IP"), key=f"block_{d['id']}", icon=":material/block:", width="content",
                           on_click=remove_device, args=(d["id"], True))
     for ip in blocked:
         with st.container(horizontal=True, vertical_alignment="center"):
-            st.markdown(f"![](/app/static/i/ng_mark.png) `{ip}` disekat untuk pusingan ini")
-            st.button("Buka sekatan", key=f"unblock_{ip}", type="tertiary", on_click=unblock_ip, args=(ip,))
+            st.markdown(f"![](/app/static/i/ng_mark.png) `{ip}` " + tr("disekat untuk pusingan ini", "blocked for this round"))
+            st.button(tr("Buka sekatan", "Unblock"), key=f"unblock_{ip}", type="tertiary", on_click=unblock_ip, args=(ip,))
 
 
 def log_panel():
@@ -1599,10 +1769,11 @@ def log_panel():
         df = pd.read_sql("SELECT time, event, who, ip, country, device, note FROM events ORDER BY time DESC LIMIT 300",
                          con)
     if df.empty:
-        st.caption("Belum ada peristiwa.")
+        st.caption(tr("Belum ada peristiwa.", "Nothing has happened yet."))
         return
     df["time"] = df["time"].map(_when)
-    st.dataframe(df.rename(columns={"time": "masa", "event": "peristiwa", "who": "siapa", "country": "negara",
-                                    "device": "peranti", "note": "catatan"}), hide_index=True)
-    st.download_button("Muat turun semua log (CSV)", events_csv(), file_name="share_log.csv",
+    st.caption(tr("Log ditulis dalam Bahasa Melayu.", "The log is written in Malay."))
+    st.dataframe(df.rename(columns=tr({"time": "masa", "event": "peristiwa", "who": "siapa", "country": "negara",
+                                       "device": "peranti", "note": "catatan"}, {})), hide_index=True)
+    st.download_button(tr("Muat turun semua log (CSV)", "Download the whole log (CSV)"), events_csv(), file_name="share_log.csv",
                        icon=":material/download:", type="tertiary")

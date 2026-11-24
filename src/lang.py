@@ -36,11 +36,14 @@ def default_lang():
 
 
 def current():
-    """'ms' or 'en' for this visitor."""
-    asked = st.query_params.get("lang")
-    if asked in LANGS:                                   # a link or reload with ?lang=..
-        st.session_state["cz_lang"] = asked
-    return st.session_state.get("cz_lang") or default_lang()
+    """'ms' or 'en' for this visitor (Malay when there is no visitor, e.g. in the tests)."""
+    try:
+        asked = st.query_params.get("lang")
+        if asked in LANGS:                               # a link or reload with ?lang=..
+            st.session_state["cz_lang"] = asked
+        return st.session_state.get("cz_lang") or default_lang()
+    except Exception:                                    # not inside a Streamlit page
+        return DEFAULT
 
 
 def tr(ms, en):

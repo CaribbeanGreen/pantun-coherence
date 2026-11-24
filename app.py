@@ -17,6 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 from src.app_core import fonts, start_warmup
+from src.lang import role, switch_lang, tr
 from src.share import allowed_views, current_user, gate, is_visitor, owner_page, state, user_bar
 
 st.set_page_config(page_title="Semak Pantun · Cenderawasih", page_icon=":material/menu_book:",
@@ -27,13 +28,16 @@ if logo.exists():
     st.logo(str(logo), size="large")
 fonts()          # Lora for pantun text, Nunito for the student view
 start_warmup()   # load the models in the background so results come within 7 seconds (SRNF02)
+with st.container(horizontal=True, horizontal_alignment="right", key="cz_langbar"):
+    switch_lang()  # BM / EN, each visitor chooses for themselves (src/lang.py); also on the login screen
 gate()           # visitors from the public address must type the current share code (src/share.py)
 
 # Each person sees only the views their role allows (src/share.py ROLE_VIEWS), and lands on their own one:
 # students and guests on Pelajar, lecturers on Pensyarah, experts on Penyelidik. The owner sees all.
-VIEWS = {"pelajar": ("app_pages/pelajar.py", "Pelajar", ":material/school:"),
-         "pensyarah": ("app_pages/pensyarah.py", "Pensyarah", ":material/co_present:"),
-         "penyelidik": ("app_pages/penyelidik.py", "Penyelidik & Pakar", ":material/science:")}
+# Titles come from src/lang.py (Murid / Pupil, Cikgu / Teacher, ...); the page addresses stay /pelajar, /pensyarah.
+VIEWS = {"pelajar": ("app_pages/pelajar.py", role("pelajar"), ":material/school:"),
+         "pensyarah": ("app_pages/pensyarah.py", role("pensyarah"), ":material/co_present:"),
+         "penyelidik": ("app_pages/penyelidik.py", role("penyelidik"), ":material/science:")}
 allowed = allowed_views()
 home = allowed[0] if current_user()["kind"] == "member" else "pelajar"
 # Pelajar is always the default page (served at "/"); a page marked default loses its own address, so making
@@ -42,10 +46,11 @@ by_view = {v: st.Page(VIEWS[v][0], title=VIEWS[v][1], icon=VIEWS[v][2], default=
            for v in ["pelajar", "pensyarah", "penyelidik"] if v in allowed}
 pages = list(by_view.values())
 if not is_visitor() or state()["tester_open"]:   # visitors see the tester form only while the owner has it open
-    pages.append(st.Page("app_pages/penguji.py", title="Borang Penguji", icon=":material/rate_review:",
-                         url_path="penguji"))
+    pages.append(st.Page("app_pages/penguji.py", title=tr("Borang Penguji", "Tester Form"),
+                         icon=":material/rate_review:", url_path="penguji"))
 if not is_visitor():   # only on this computer: members, guest code, devices and log
-    pages.append(st.Page(owner_page, title="Kongsi", icon=":material/share:", url_path="kongsi"))
+    pages.append(st.Page(owner_page, title=tr("Tetapan", "Settings"), icon=":material/settings:",
+                         url_path="tetapan"))
 nav = st.navigation(pages, position="top")
 if home != "pelajar" and not st.session_state.get("cz_home_done"):
     st.session_state["cz_home_done"] = True
