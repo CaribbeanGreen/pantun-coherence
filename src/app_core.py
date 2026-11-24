@@ -586,7 +586,10 @@ def section_label(text):
 
 TUTORIAL_DIR = PROJECT_ROOT / "assets" / "tutorial"
 
-# Spotlight tour that runs in the page. Steps whose element is not on the page are skipped.
+# Spotlight tour that runs in the page. Steps whose element is not on the page (or off screen, like the closed
+# side menu on a phone) are skipped. A step can name the tab its element sits in: the tour opens that tab first,
+# so the tour also works when it is started from another tab. On narrow screens the tip is pinned to the bottom
+# (or top) edge instead of floating beside the element.
 # Shown once per browser (remembered in localStorage, if the browser allows it), and again on request.
 _TOUR_JS = r"""
 <script>
@@ -631,9 +634,16 @@ _TOUR_JS = r"""
   root.innerHTML = '<div class="hole"></div><div class="tip" role="dialog" aria-live="polite"></div>';
   root.appendChild(css);
 
+  const W0 = () => win.innerWidth, H0 = () => win.innerHeight;
+  const onScreen = (el) => { const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && r.right > 0 && r.left < W0(); };
+  const tabButton = (s) => s.tab ? doc.querySelectorAll(s.tab[0])[s.tab[1]] : null;
+  // A step can be shown if its element is visible now, or sits in a tab that the tour can open.
+  const usable = (s) => { const el = doc.querySelector(s.sel); return el && (onScreen(el) || tabButton(s)); };
+  let tries = 0;
   const start = () => {
-    const steps = cfg.steps.filter((s) => doc.querySelector(s.sel));
-    if (!steps.length) return;
+    const steps = cfg.steps.filter(usable);
+    if (!steps.length) { if (++tries < 8) setTimeout(start, 400); return; }   // page still drawing: try again
     doc.body.appendChild(root);
     const hole = root.querySelector(".hole"), tip = root.querySelector(".tip");
     let i = 0;
@@ -642,9 +652,20 @@ _TOUR_JS = r"""
       const el = doc.querySelector(steps[i].sel);
       if (!el) return;
       const r = el.getBoundingClientRect(), pad = 8;
-      Object.assign(hole.style, { left: r.left - pad + "px", top: r.top - pad + "px",
-                                  width: r.width + 2 * pad + "px", height: r.height + 2 * pad + "px" });
-      const W = win.innerWidth, H = win.innerHeight, tw = Math.min(330, W - 24), th = tip.offsetHeight || 170;
+      const W = win.innerWidth, H = win.innerHeight;
+      // keep the highlight inside the screen (a tall element on a phone would otherwise run off it)
+      const L = Math.max(4, r.left - pad), T = Math.max(4, r.top - pad);
+      const R = Math.min(W - 4, r.right + pad), B = Math.min(H - 4, r.bottom + pad);
+      Object.assign(hole.style, { left: L + "px", top: T + "px", width: Math.max(0, R - L) + "px",
+                                  height: Math.max(0, B - T) + "px" });
+      if (W < 640) {                       // phone: full-width tip on the edge farther from the element
+        const tw = W - 24, th = tip.offsetHeight || 190;
+        tip.style.width = tw + "px"; tip.style.left = "12px";
+        const below = H - B, above = T;
+        tip.style.top = (below >= th + 16 || below >= above ? H - th - 12 : 12) + "px";
+        return;
+      }
+      const tw = Math.min(330, W - 24), th = tip.offsetHeight || 170;
       tip.style.width = tw + "px";
       let left = r.right + 18, top = r.top;
       if (left + tw > W - 12) { left = Math.max(12, Math.min(W - tw - 12, r.left)); top = r.bottom + 16; }
@@ -675,9 +696,20 @@ _TOUR_JS = r"""
       tip.querySelector(".go").focus({ preventScroll: true });
     };
     const show = () => {
-      const el = doc.querySelector(steps[i].sel);
-      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
-      render(); place(); setTimeout(place, 350); setTimeout(place, 700);
+      const s = steps[i];
+      let wait = 0;
+      const el0 = doc.querySelector(s.sel);
+      if (!(el0 && onScreen(el0)) && tabButton(s)) { tabButton(s).click(); wait = 350; }   // open its tab first
+      render();
+      setTimeout(() => {
+        const el = doc.querySelector(s.sel);
+        if (el) {
+          el.style.scrollMarginTop = "90px";   // stay clear of the sticky top menu
+          // phones jump straight there (a long smooth scroll could end after the highlight was placed)
+          el.scrollIntoView(W0() < 640 ? { block: "start" } : { block: "center", behavior: "smooth" });
+        }
+        place(); [150, 350, 750, 1200].forEach((ms) => setTimeout(place, ms));
+      }, wait);
     };
     win.addEventListener("resize", place); doc.addEventListener("scroll", place, true);
     doc.addEventListener("keydown", keys, true);
@@ -694,10 +726,12 @@ TOUR_LABELS = {
 
 
 def tour(view, steps, language=None):
-    """Guided spotlight tour. steps = [(css selector, title, text), ...]. Text must be safe HTML."""
+    """Guided spotlight tour. steps = [(css selector, title, text), ...] or (css selector, title, text, tab), where
+    tab = (css selector of the tab buttons, index) is the tab the element sits in. Text must be safe HTML."""
     nonce = st.session_state.get(f"tour_{view}", 0)
     cfg = {"view": view, "nonce": nonce, "labels": TOUR_LABELS[language or lang.current()],
-           "steps": [{"sel": s, "title": t, "text": x} for s, t, x in steps]}
+           "steps": [{"sel": s[0], "title": s[1], "text": s[2], "tab": s[3] if len(s) > 3 else None}
+                     for s in steps]}
     code = _TOUR_JS.replace("__CFG__", json.dumps(cfg, ensure_ascii=False))
     # The HTML sanitiser drops a <script> whose text contains "<tag"-like text, so write "<" as "\x3c" inside it.
     head, body = code.split("<script>", 1)

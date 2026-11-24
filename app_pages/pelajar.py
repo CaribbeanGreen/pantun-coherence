@@ -368,18 +368,20 @@ with middle.container(key="pelajar"):
                       type="tertiary", on_click=lambda: (sign_out(), st.session_state.update(cz_want_login=True)),
                       key="s_staff_login")
 
+CHECK_TAB = (".st-key-pelajar [role='tab']", 0)   # these steps are on the Semak Pantun tab: the tour opens it
 tour("pelajar", [
     (".st-key-s_lines", tr("Tulis pantun anda", "Write your pantun") + " <img class=cz-i alt src=/app/static/i/pencil.png>",
      tr("Baris 1–2 ialah <b>pembayang</b>, baris 3–4 ialah <b>maksud</b>. Tiada pantun? Tekan satu contoh di bawah.",
-        "Lines 1–2 are the <b>pembayang</b>, lines 3–4 the <b>maksud</b>. No pantun? Press an example below.")),
+        "Lines 1–2 are the <b>pembayang</b>, lines 3–4 the <b>maksud</b>. No pantun? Press an example below."),
+     CHECK_TAB),
     (".st-key-s_go", tr("Tekan Semak", "Press Check") + " <img class=cz-i alt src=/app/static/i/magnifier.png>",
      tr("Komputer menyemak <b>bunyi, makna dan peraturan</b> dalam beberapa saat.",
-        "The computer checks <b>sound, meaning and rules</b> in a few seconds.")),
+        "The computer checks <b>sound, meaning and rules</b> in a few seconds."), CHECK_TAB),
     (".st-key-s_right", tr("Baca hasil anda", "Read your result") + " <img class=cz-i alt src=/app/static/i/target.png>",
      tr("Tiga dial: <b>Bunyi</b> (rima), <b>Makna</b> (tanda sepadan) dan <b>Peraturan</b> (bentuk). "
         "Pujian dahulu, kemudian petua. Tidak setuju? Minta cikgu semak.",
         "Three dials: <b>Sound</b> (rhyme), <b>Meaning</b> (signs of a match) and <b>Rules</b> (form). "
-        "Praise first, then a tip. Disagree? Ask your teacher to check.")),
+        "Praise first, then a tip. Disagree? Ask your teacher to check."), CHECK_TAB),
     (".st-key-pelajar [role='tablist']", tr("Belajar & Sejarah", "Learn & History")
      + " <img class=cz-i alt src=/app/static/i/book_open_yoko.png>",
      tr("<b>Belajar Pantun</b> untuk teori dengan contoh. <b>Sejarah Saya</b> untuk pantun yang anda semak.",

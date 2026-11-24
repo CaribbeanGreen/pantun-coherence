@@ -309,13 +309,15 @@ with tab_m:
         "- **Reproduce:** `python -m src.build_corpus` → `python -m src.score` → `notebooks/evaluation.ipynb`."))
 
 pic = lambda name: f" <img class=cz-i alt src=/app/static/i/{name}.png>"
+ANALYSE_TAB = ("[data-testid='stMain'] [role='tab']", 0)   # steps on the first tab: the tour opens it
 tour("penyelidik", [
     (".st-key-r_input", tr("Analisis pantun", "Analyse a pantun") + pic("microscope"),
      tr("Tampal 4 baris atau pilih contoh, kemudian tekan <b>Analisis</b>.",
-        "Paste 4 lines or pick an example, then press <b>Analyse</b>.")),
+        "Paste 4 lines or pick an example, then press <b>Analyse</b>."), ANALYSE_TAB),
     (".st-key-r_go", tr("Setiap nombor ditunjuk", "Every number shown") + pic("chart"),
      tr("Keputusan keseluruhan, <b>skor setiap model</b>, kedudukan pantun dalam korpus, dan semakan bentuk dan bunyi.",
-        "Overall result, <b>per-model scores</b>, where the pantun sits in the corpus, and the form and sound checks.")),
+        "Overall result, <b>per-model scores</b>, where the pantun sits in the corpus, and the form and sound checks."),
+     ANALYSE_TAB),
     ("[role='tablist']", tr("Dapatan, barisan dan kaedah", "Findings, queue and method") + pic("folder"),
      tr("<b>Dapatan</b>: penilaian penuh. <b>Barisan pakar</b>: pantun yang dihantar cikgu untuk disemak. "
         "<b>Kaedah</b>: model dan peraturan.",
