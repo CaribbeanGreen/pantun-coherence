@@ -1,13 +1,15 @@
 # Handoff (read this first if you are joining or continuing the project)
 
-Last updated: 18 Nov 2026 (tester form, lecturer dashboard, new videos). Owner: CaribbeanGreen. This note says where the project stands, how to get it
+Last updated: 24 Nov 2026 (bilingual app, Murid/Cikgu names, Tetapan page, tour fix). Owner: CaribbeanGreen. This note says where the project stands, how to get it
 running, and what is left to do, so anyone (a classmate, a lecturer, or a future you) can carry on.
 
 ## 1. What this is
 **Semak Pantun** (CSC575, Cenderawasih): a Streamlit web app that checks a Malay *pantun empat kerat*
 (rhyme, syllables, and how well the pembayang fits the maksud using transformer embeddings). It has three
-views: **Pelajar** (students), **Pensyarah** (lecturers) and **Penyelidik** (researchers / experts), plus a
-**Kongsi** page for the owner to share the app online with accounts, class codes and guest access.
+views: **Murid / Pupil** (school pupils), **Cikgu / Teacher** and **Penyelidik & Pakar / Researcher & Expert**, plus a
+**Tetapan / Settings** page for the owner to share the app online with accounts, class codes and guest access.
+The whole app is in **Bahasa Melayu or English** (BM / EN switch on every page; texts sit side by side as
+`tr("...", "...")`, see `src/lang.py`). Internal names and addresses stay `pelajar`, `pensyarah`, `penyelidik`.
 
 ## 2. Get it running (Windows)
 1. Install Python 3.11+, then in the project folder:
@@ -33,12 +35,14 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 |---|---|
 | `app.py` | Entry point: login gate, which pages each role sees, top bar |
 | `app_pages/pelajar.py`, `pensyarah.py`, `penyelidik.py` | The three views |
-| `app_pages/penguji.py`, `src/tester.py` | Borang Penguji, and its results on Kongsi → 🧪 Penguji |
+| `app_pages/penguji.py`, `src/tester.py` | Borang Penguji, and its results on Tetapan → Penguji |
 | `src/dashboard.py` | Pieces of the lecturer's Papan pemuka |
-| `src/share.py` | Everything about sharing: accounts, roles, sign-up, classes, inquiries, guest codes, Kongsi page |
+| `src/share.py` | Everything about sharing: accounts, roles, sign-up, classes, inquiries, guest codes, Tetapan page |
 | `src/app_core.py` | Scoring, shared CSS/animations, CSV logs |
 | `src/illus.py` | Irasutoya pictures and the sign-up celebration |
-| `docs/sharing_guide.md` | Full guide to the sharing system, theory to checklists (start here for Kongsi) |
+| `docs/sharing_guide.md` | Full guide to the sharing system, theory to checklists (start here for Tetapan; written when the page was called Kongsi) |
+| `src/lang.py` | The two languages: `tr(ms, en)`, role names (Murid/Cikgu...), the BM / EN switch |
+| `docs/demo_walkthrough.md` | Spoken 4-presenter demo script (Murid, Cikgu, Cikgu + Penguji, Penyelidik & Pakar) |
 | `tutorial/` | Sources of the tutorial videos. **Change a screen? Update its page here and re-render** (see section 8) |
 
 ## 4. Git rules for this repo
@@ -49,6 +53,10 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 
 ## 5. Current state
 - **`main` is up to date** with everything below; work on a new branch from it.
+- Branch **`bilingual-murid-cikgu`** merged into `main` on 24 Nov 2026 (fast-forward, pushed, deployed to the NAS):
+  BM / EN for the whole app (owner sets the default on Tetapan → Bahasa), Murid / Cikgu names, Kongsi renamed
+  Tetapan (`/tetapan`), guided tour works from any tab and on phones, demo script. Details: `HANDOFF-bilingual.md`.
+  Saved data never depends on the language (tester answers Malay, expert ratings English, decision keys fixed).
 - Latest work (all merged): Irasutoya pictures and sign-up celebration; same-name check at sign-up;
   lecturer-expiry handling (classes without an active lecturer, Pindah kelas, expiry warnings, 1-year
   lecturer accounts, retired usernames); fix for the Semakan crash after answering an inquiry.
@@ -64,7 +72,7 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
   no longer receives traffic). **Start Demo.bat** is still fine for working on the code locally.
 - **Owner admin from anywhere (23 Nov 2026):** https://studio.aimanjamal.com → Cloudflare Access login
   (email one-time code, owner emails only) → the app sees a signed token and treats the request like this
-  computer (Kongsi page). Code: `src/access_login.py` + `is_visitor()` in `src/share.py`; tests:
+  computer (Tetapan page). Code: `src/access_login.py` + `is_visitor()` in `src/share.py`; tests:
   `tests/test_access_login.py`. Settings in `.env` (never in git): `PANTUN_ACCESS_TEAM`, `PANTUN_ACCESS_AUD`,
   `PANTUN_OWNER_EMAILS`. Cloudflare side: Zero Trust → Access controls → Applications → **Pantun Studio**
   (policy "owner only", login method One-time PIN only).
@@ -77,8 +85,9 @@ Tick them off here when done.
 
 - [x] Merge `illustrations` into `main` (done 17 Nov 2026).
 - [x] Delete the old `illustrations` and `business-case-sync` branches (done 18 Nov 2026).
-- [ ] Owner tries `tester-dashboard-videos` locally, then merge into `main`.
-- [ ] Run a test round: Kongsi → 🧪 Penguji, switch the form on, create an account per friend, send the invite.
+- [x] Owner tries `tester-dashboard-videos` locally, then merge into `main` (done 23 Nov 2026).
+- [ ] Optional: English versions of the Murid and Cikgu tutorial videos (now Malay only).
+- [ ] Run a test round: Tetapan → Penguji, switch the form on, create an account per friend, send the invite.
 - [ ] After at least 20 sure ratings, read **Penalaan skor** and decide whether the meaning score needs changing (nothing changes automatically).
 - [ ] Decide whether the GitHub repo should stay **public** (fine for a course project, but think about it
       before adding anything personal).
@@ -101,7 +110,7 @@ set PANTUN_SHARE_DIR=%TEMP%\pantun-test
 set PANTUN_FORCE_GATE=1
 .venv\Scripts\streamlit run app.py --server.port 8503
 ```
-Then walk through: sign up as a lecturer on 8503, approve on 8502 (Kongsi), create a class, sign up a student
+Then walk through: sign up as a lecturer on 8503, approve on 8502 (Tetapan), create a class, sign up a student
 with its code, send an inquiry, answer it.
 
 ## 8. Re-making the tutorial videos
