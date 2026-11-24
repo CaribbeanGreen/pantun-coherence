@@ -98,7 +98,9 @@ def form_and_sound(res):
             + tr("Perkataan dikongsi", "Shared words") + f": {words}")
 
 
-def analysis(res):
+def analysis(res, key="analyse"):
+    """Every number for one pantun. `key` keeps the widgets apart when it is drawn on two tabs at once
+    (Analisis pantun and Barisan pakar), which otherwise stopped the page with a duplicate-key error."""
     test, b = load_calibration()["held_out_test"], baselines()
     left, right = st.columns([3, 2], gap="medium")
     with left:
@@ -129,7 +131,7 @@ def analysis(res):
         with st.container(border=True):
             show = st.segmented_control(tr("Kedudukan pantun ini", "Where this pantun sits"), list(res["scores"]), default="labse"
                                         if "labse" in res["scores"] else list(res["scores"])[0],
-                                        format_func=lambda s: MODEL_LABEL[s], key="r_dist", required=True)
+                                        format_func=lambda s: MODEL_LABEL[s], key=f"r_dist_{key}", required=True)
             groups = {"real": tr("pantun sebenar", "real pantun"), "random": tr("pasangan rawak", "random pairings")}
             d = density(show).assign(group=lambda f: f["group"].map(groups))
             lines_chart = alt.Chart(d).mark_line(strokeWidth=2.5).encode(
@@ -150,7 +152,7 @@ def analysis(res):
                                    f"with this pantun at {res['scores'][show]:.2f}"))
     with right:
         form_and_sound(res)
-        expert_form(res["lines"], res, "analyse")
+        expert_form(res["lines"], res, key)
 
 
 # ---- Page ---------------------------------------------------------------------------------------
@@ -203,7 +205,7 @@ with tab_a:
                                "Scoring with all models (about a minute the first time)…")):
                 st.session_state["r_result"] = analyse(lines)
     if st.session_state.get("r_result"):
-        analysis(st.session_state["r_result"])
+        analysis(st.session_state["r_result"], "analyse")
 
 with tab_f:
     illus.stage("findings", tr("Dapatan", "Findings"),
@@ -274,7 +276,7 @@ with tab_q:
                 st.warning("; ".join(problems))
             else:
                 with st.spinner(tr("Menilai…", "Scoring…")):
-                    analysis(analyse(lines))
+                    analysis(analyse(lines), "queue")
     if not rated.empty:
         st.markdown(tr(f"**Penilaian disimpan: {len(rated)}** (sasaran get M3: 300 pantun × 3 pakar)",
                        f"**Ratings saved: {len(rated)}** (target for the M3 gate: 300 pantun × 3 experts)"))

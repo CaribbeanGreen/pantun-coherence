@@ -29,3 +29,7 @@ assets/irasutoya/*
 !assets/irasutoya/CREDITS.md
 !assets/irasutoya/catalog.json
 static/i/*.png
+
+# video tools environment and raw recordings (tutorial/record_*.py)
+videnv/
+recordings/

@@ -93,28 +93,53 @@ Last sekali, star rating and a few comments, then **Hantar borang**. Siap. Even 
 
 ## Part 4 · Penyelidik & Pakar (Presenter 4)
 
-*[Switch to the Penyelidik tab. "Analisis pantun" is open.]*
+Recorded as a video (`tutorial/record_penyelidik.py`), from the login screen to logging out. Each **P4-n** segment
+below is one piece of the video: read one segment, pause about one second, then go on. That pause is how the video is
+synced to your voice-over later.
 
-Finally, the **Penyelidik & Pakar** side. This page is for people who want to see every number, no hiding.
+**P4-1 · Log masuk** *[Login screen. Type the username and password, press Log masuk. The page opens with the owl
+chip "Penyelidik & Pakar" at the top right.]*
 
-*[Pick an example, press "Analisis".]*
+Okay, last part: **Penyelidik & Pakar**. Akaun pakar ni special sikit, sebab tak boleh daftar sendiri; it is given
+only to real experts and researchers. So I just log masuk, and terus masuk page pakar. Nampak tak burung hantu kat
+atas tu? That's my role, so I always know which account I'm using.
 
-Kita paste satu pantun and tekan **Analisis**. Here you can see the result for each of the five embedding models,
-macam LaBSE and e5, with the cosine score, the percentile, and the calibrated p(real). The chart shows where this
-pantun sits compared to real pantun and random pairings from our corpus of almost eleven thousand pantun.
+**P4-2 · Analisis pantun** *[Click the example "Pisang emas", press Analisis, wait for the result.]*
 
-*[Point to "Penilaian pakar" on the right.]*
+Page ni untuk orang yang nak tengok every single number, no hiding. Kita pilih satu pantun, contohnya Pisang emas,
+and tekan **Analisis**. The system runs all five embedding models at once.
 
-On the right, pakar boleh bagi rating satu hingga lima: how strongly does the pembayang prepare the maksud?
-Dia pilih jenis kaitan, contohnya gema bunyi or kiasan, and these ratings become our ground truth.
+**P4-3 · Keputusan setiap model** *[Scroll to the overall line and the per-model table.]*
 
-*[Open "Barisan pakar", then "Dapatan".]*
+First, the overall result. Then the table: for each model, macam LaBSE and e5, we see the cosine score, the
+percentile in our corpus, and p(real), which is the calibrated chance that this pembayang and maksud really belong
+together. Kalau p(real) dekat 0.5, maksudnya model tu tak tahu, simple as that.
 
-**Barisan pakar** is where the difficult cases from cikgu land. And **Dapatan** shows what we found, honestly.
-Rhyme is easy for the computer: AUC 0.99. But the meaning link? The best model only reaches about 0.60. Maksudnya,
-computer still can't really understand kiasan.
+**P4-4 · Kedudukan pantun ini** *[In the chart, switch the model from LaBSE to another one and back.]*
 
-*[Open "Kaedah".]*
+Chart ni pula shows where this pantun sits. The teal line is real pantun, the grey line is random pairings, and the
+gold line is our pantun. Bila dua curve ni overlap banyak, it tells you honestly that the meaning link is hard to
+measure.
 
-**Kaedah** explains every step so anyone can repeat our work. To be clear, our score is not a judgement of literary
-quality. It's a helper for murid, cikgu and pakar, and the final say always stays with humans. Terima kasih!
+**P4-5 · Bentuk, bunyi dan penilaian pakar** *[Point to "Bentuk dan bunyi", then fill in "Penilaian pakar": 4,
+Gema bunyi + Kiasan, Setuju, Simpan penilaian.]*
+
+Sebelah kanan, the form and sound check: rima, suku kata, unsur alam. Below it is the most important part for an
+expert: **Penilaian pakar**. I rate how strongly the pembayang prepares the maksud, satu hingga lima, pilih jenis
+kaitan, and say whether I agree with the system. Every rating we save becomes ground truth for our study.
+
+**P4-6 · Barisan pakar** *[Open "Barisan pakar", pick a case.]*
+
+Tab **Barisan pakar** is where the hard cases land. Bila cikgu tak pasti pasal satu pantun, dia tekan "Hantar kepada
+pakar", and it appears here for us. Only experts can open this page, so the cases from every class stay private.
+
+**P4-7 · Dapatan** *[Open "Dapatan", scroll slowly through the numbers and tables.]*
+
+**Dapatan** shows what we found, honestly. Rhyme is easy for the computer: AUC 0.99. But the meaning link? The best
+model only reaches about 0.60. Maksudnya, computer still can't really understand kiasan, and we report that as it is.
+
+**P4-8 · Kaedah dan penutup** *[Open "Kaedah", then press Log keluar.]*
+
+Last, **Kaedah** explains every step, so anyone can repeat our work. To be clear, our score is not a judgement of
+literary quality. It is a helper for murid, cikgu and pakar, and the final say always stays with humans.
+Terima kasih!
