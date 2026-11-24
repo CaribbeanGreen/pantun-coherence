@@ -792,34 +792,58 @@ def _want_login():
     st.session_state["cz_want_login"] = True
 
 
+# Each kind of account has its own small character in the top bar (pictures in static/i, see src/illus.py).
+AVATARS = {"pelajar": ("student", "#9B5DE5"), "pensyarah": ("job_senesi", "#2AA7E0"),
+           "penyelidik": ("owl", "#1E9A50"), "owner": ("hornbill", "#F08A00"), "guest": ("kotori", "#5B6670")}
+_CHIP_CSS = """<style>
+.cz-chip { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px;
+  background: #fff; border: 2px solid var(--c); font-family: 'Nunito', sans-serif; line-height: 1.15; }
+.cz-chip .av { width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--c) 18%, #fff);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; }
+.cz-chip .av img { width: 30px; height: 30px; object-fit: contain; }
+.cz-chip b { display: block; font-size: .92rem; color: #17324D; max-width: 160px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.cz-chip small { font-size: .74rem; font-weight: 800; color: var(--c); }
+</style>"""
+
+
+def user_chip(name, role_key, role_txt):
+    """Round avatar + name + role, as HTML (the name comes from the user, so it is escaped)."""
+    pic, colour = AVATARS.get(role_key, AVATARS["guest"])
+    img = f'<img alt="" src="/app/static/i/{pic}.png">' if illus.has(pic) else ""
+    return (f'{_CHIP_CSS}<div class="cz-chip" style="--c:{colour}"><span class="av">{img}</span>'
+            f'<span><b>{html.escape(str(name))}</b><small>{html.escape(role_txt)}</small></span></div>')
+
+
 def user_bar():
-    """Small 'name · role · Log keluar' row for visitors, shown above every page."""
-    if not is_visitor():
-        return
+    """Small 'avatar · name · role · Log keluar' chip, shown in the top bar of every page (app.py puts it next to
+    the BM / EN switch). The owner gets a chip too, without the buttons."""
     u = current_user()
-    with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_userbar"):
-        if u["kind"] == "public":
-            st.caption(f"![](/app/static/i/gutspose_man.png) **{role_name('pelawat')}** · "
-                       + tr("tanpa log masuk", "not logged in"))
-            st.button(tr("Log masuk / Daftar", "Log in / Sign up"), icon=":material/login:", type="tertiary", on_click=_want_login,
-                      key="cz_login")
-            return
-        role_txt = role_name(u["role"]) if u["role"] in ROLES else role_name("tetamu")
-        st.caption(f"![](/app/static/i/gutspose_man.png) **{u['name']}** · {role_txt}")
-        if u["kind"] == "member":
-            with st.popover(tr("Tukar kata laluan", "Change password"), icon=":material/password:", type="tertiary"):
-                with st.form("cz_pw", border=False, clear_on_submit=True):
-                    old = st.text_input(tr("Kata laluan / kunci semasa", "Current password / key"), type="password")
-                    new = st.text_input(tr("Kata laluan baharu", "New password"), type="password")
-                    new2 = st.text_input(tr("Ulang kata laluan baharu", "Repeat new password"), type="password")
-                    if st.form_submit_button(tr("Simpan", "Save"), type="primary"):
-                        try:
-                            change_password(u["username"], old, new, new2)
-                            st.success(tr("Kata laluan ditukar. Peranti lain akan dilog keluar.",
-                                          "Password changed. Other devices will be logged out."))
-                        except ValueError as e:
-                            st.error(str(e))
-        st.button(tr("Log keluar", "Log out"), icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
+    if u["kind"] == "owner":
+        st.html(user_chip(u["name"], "owner", tr("Pemilik", "Owner")), width="content")
+        return
+    if u["kind"] == "public":
+        st.html(user_chip(role_name("pelawat"), "guest", tr("tanpa log masuk", "not logged in")), width="content")
+        st.button(tr("Log masuk / Daftar", "Log in / Sign up"), icon=":material/login:", type="tertiary",
+                  on_click=_want_login, key="cz_login")
+        return
+    role_key = u["role"] if u["role"] in ROLES else "guest"
+    role_txt = role_name(u["role"]) if u["role"] in ROLES else role_name("tetamu")
+    st.html(user_chip(u["name"], role_key, role_txt), width="content")
+    if u["kind"] == "member":
+        with st.popover(tr("Tukar kata laluan", "Change password"), icon=":material/password:", type="tertiary"):
+            with st.form("cz_pw", border=False, clear_on_submit=True):
+                old = st.text_input(tr("Kata laluan / kunci semasa", "Current password / key"), type="password")
+                new = st.text_input(tr("Kata laluan baharu", "New password"), type="password")
+                new2 = st.text_input(tr("Ulang kata laluan baharu", "Repeat new password"), type="password")
+                if st.form_submit_button(tr("Simpan", "Save"), type="primary"):
+                    try:
+                        change_password(u["username"], old, new, new2)
+                        st.success(tr("Kata laluan ditukar. Peranti lain akan dilog keluar.",
+                                      "Password changed. Other devices will be logged out."))
+                    except ValueError as e:
+                        st.error(str(e))
+    st.button(tr("Log keluar", "Log out"), icon=":material/logout:", type="tertiary", on_click=sign_out, key="cz_logout")
 
 
 def reset_key(username, days=None):

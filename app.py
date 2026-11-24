@@ -31,8 +31,14 @@ start_warmup()   # load the models in the background so results come within 7 se
 st.html("""<style>
 .st-key-cz_langbar button[aria-checked="true"] { background: #1E9A50 !important; border-color: #1E9A50 !important; }
 .st-key-cz_langbar button[aria-checked="true"] p { color: #fff !important; font-weight: 800; }
+/* top row (user chip, password, log out, BM / EN): stays one wrapped line on a phone instead of a tall column */
+.st-key-cz_langbar, .st-key-cz_userbar { flex-direction: row !important; flex-wrap: wrap !important;
+  align-items: center !important; gap: 6px 10px !important; }
+.st-key-cz_langbar > div, .st-key-cz_userbar > div { width: auto !important; flex: 0 0 auto !important; }
 </style>""")   # the chosen language is a filled green pill, the other stays white
-with st.container(horizontal=True, horizontal_alignment="right", key="cz_langbar"):
+# One top row: who is signed in (filled in below, once we know) and the BM / EN switch.
+with st.container(horizontal=True, horizontal_alignment="right", vertical_alignment="center", key="cz_langbar"):
+    who_box = st.container(horizontal=True, vertical_alignment="center", width="content", key="cz_userbar")
     switch_lang()  # BM / EN, each visitor chooses for themselves (src/lang.py); also on the login screen
 gate()           # visitors from the public address must type the current share code (src/share.py)
 
@@ -60,7 +66,8 @@ if home != "pelajar" and not st.session_state.get("cz_home_done"):
     st.session_state["cz_home_done"] = True
     if nav.url_path in ("", "pelajar"):
         st.switch_page(by_view[home])
-user_bar()             # visitors: "name · role · Log keluar"
+with who_box:
+    user_bar()         # avatar chip (its own character per role) · Tukar kata laluan · Log keluar
 
 # On a phone Streamlit hides the top menu behind a small button, so visitors only saw the first view.
 # This row of links shows the views on narrow screens only.
