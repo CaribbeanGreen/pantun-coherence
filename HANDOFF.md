@@ -55,7 +55,13 @@ What a fresh clone does **not** have (private or not redistributable, see `.giti
 - Branch **`tester-dashboard-videos`** (Borang Penguji, lecturer Papan pemuka, kids-show look, re-made tutorial
   videos) was tried live by the owner and **merged into `main` on 23 Nov 2026** (fast-forward, pushed).
 - Old branches `illustrations` and `business-case-sync` were merged and deleted.
-- Hosting: temporary, via Cloudflare Tunnel at pantun.aimanjamal.com (**Start Sharing.bat**), off by default.
+- **Hosting (since 24 Nov 2026): on the home NAS**, always on. TrueNAS app `pantun` from the private `homelab` repo
+  (`stacks/pantun`): code pulled from GitHub `main` automatically (a push restarts it within ~1 min); models, data,
+  `results/` (accounts!) and Irasutoya pictures live on the NAS in `/mnt/main/pantun/work`. Both
+  pantun.aimanjamal.com and studio.aimanjamal.com go through the `homelab` tunnel.
+- **The live accounts and logs are now on the NAS.** The PC's `results/` is a snapshot from 24 Nov, 00:40, and is
+  **not** updated any more: never copy it back over the NAS copy. Don't run **Start Sharing.bat** (the PC tunnel
+  no longer receives traffic). **Start Demo.bat** is still fine for working on the code locally.
 - **Owner admin from anywhere (23 Nov 2026):** https://studio.aimanjamal.com → Cloudflare Access login
   (email one-time code, owner emails only) → the app sees a signed token and treats the request like this
   computer (Kongsi page). Code: `src/access_login.py` + `is_visitor()` in `src/share.py`; tests:
