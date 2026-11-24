@@ -28,6 +28,10 @@ if logo.exists():
     st.logo(str(logo), size="large")
 fonts()          # Lora for pantun text, Nunito for the student view
 start_warmup()   # load the models in the background so results come within 7 seconds (SRNF02)
+st.html("""<style>
+.st-key-cz_langbar button[aria-checked="true"] { background: #1E9A50 !important; border-color: #1E9A50 !important; }
+.st-key-cz_langbar button[aria-checked="true"] p { color: #fff !important; font-weight: 800; }
+</style>""")   # the chosen language is a filled green pill, the other stays white
 with st.container(horizontal=True, horizontal_alignment="right", key="cz_langbar"):
     switch_lang()  # BM / EN, each visitor chooses for themselves (src/lang.py); also on the login screen
 gate()           # visitors from the public address must type the current share code (src/share.py)
